@@ -21,6 +21,8 @@ export default function StakeholderDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState(null);
 
   useEffect(() => {
     const load = async () => {
@@ -36,6 +38,19 @@ export default function StakeholderDashboard() {
     };
     load();
   }, []);
+
+  const handleSearch = (query) => {
+    setSearchQuery(query);
+    if (query.trim() === "") {
+      setSearchResults(null);
+      return;
+    }
+    const result = data.find(s => 
+      s.name?.toLowerCase().includes(query.toLowerCase()) || 
+      s.id?.toLowerCase().includes(query.toLowerCase())
+    );
+    setSearchResults(result || null);
+  };
 
   const filteredData = useMemo(() => {
     if (filter === "all") return data;
@@ -124,8 +139,8 @@ export default function StakeholderDashboard() {
   const allies = useMemo(() => filteredData.filter(s => s.influence === "Medium" && s.interest === "High"), [filteredData]);
 
   const peopleVsInstitutions = useMemo(() => {
-    const people = filteredData.filter(s => !s.organization || s.organization.toLowerCase().includes('self') || s.organization.toLowerCase().includes('individual')).length;
-    return { people, institutions: filteredData.length - people };
+    const people = filteredData.filter(s => s.entityType === "Person").length;
+    return { people, institutions: filteredData.filter(s => s.entityType === "Institution").length };
   }, [filteredData]);
 
   const policyVsImplementation = useMemo(() => {
@@ -199,7 +214,93 @@ export default function StakeholderDashboard() {
         <h1 style={{ fontSize: 44, fontWeight: 800, color: theme.text, marginBottom: 8 }}>Stakeholder <span style={{ color: theme.accentL }}>Engagement</span></h1>
         <p style={{ fontSize: 15, color: theme.muted, marginBottom: 40, fontWeight: 500 }}>{data.length === 0 ? "No data loaded" : `${data.length} stakeholders • ${Math.max(new Set(data.map(s => s.category)).size, 1)} categories`}</p>
 
+        {/* SEARCH SECTION */}
         {data.length > 0 && (
+          <div style={{ marginBottom: 40 }}>
+            <input type="text" placeholder="🔍 Search by name or ID (e.g., 'Ajitabh' or 'P001')" value={searchQuery} onChange={(e) => handleSearch(e.target.value)} style={{ width: "100%", padding: "12px 16px", borderRadius: 8, border: `2px solid ${theme.border}`, background: theme.card, color: theme.text, fontSize: 14, transition: "border 0.2s" }} onFocus={(e) => e.target.style.borderColor = theme.accentL} onBlur={(e) => e.target.style.borderColor = theme.border} />
+          </div>
+        )}
+
+        {/* SEARCH RESULTS - Full Stakeholder Profile */}
+        {searchResults && (
+          <Section title={`🎯 Profile: ${searchResults.name} (${searchResults.id})`}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 20, marginBottom: 40 }}>
+              <Card>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                  <div>
+                    <div style={{ fontSize: 11, color: theme.muted, fontWeight: 600, marginBottom: 8 }}>ENTITY TYPE</div>
+                    <Badge label={searchResults.entityType} color={searchResults.entityType === "Person" ? "#a78bfa" : "#60a5fa"} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: theme.muted, fontWeight: 600, marginBottom: 8 }}>CATEGORY</div>
+                    <Badge label={searchResults.category} color={colors[searchResults.category] || theme.accentL} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: theme.muted, fontWeight: 600, marginBottom: 8 }}>INFLUENCE</div>
+                    <Badge label={searchResults.influence} color={levelColors[searchResults.influence]} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: theme.muted, fontWeight: 600, marginBottom: 8 }}>INTEREST</div>
+                    <Badge label={searchResults.interest} color={levelColors[searchResults.interest]} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: theme.muted, fontWeight: 600, marginBottom: 8 }}>POSITION</div>
+                    <Badge label={searchResults.position} color={positionColors[searchResults.position]} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: theme.muted, fontWeight: 600, marginBottom: 8 }}>PRIORITY</div>
+                    <Badge label={searchResults.priority} color={levelColors[searchResults.priority]} />
+                  </div>
+                </div>
+              </Card>
+              <Card>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 16 }}>
+                  <div>
+                    <div style={{ fontSize: 11, color: theme.muted, fontWeight: 600, marginBottom: 6 }}>ORGANIZATION</div>
+                    <div style={{ fontSize: 14, color: theme.text, fontWeight: 500 }}>{searchResults.organization}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: theme.muted, fontWeight: 600, marginBottom: 6 }}>ROLE</div>
+                    <div style={{ fontSize: 14, color: theme.text, fontWeight: 500 }}>{searchResults.role}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: theme.muted, fontWeight: 600, marginBottom: 6 }}>STRATEGY</div>
+                    <div style={{ fontSize: 14, color: theme.text, fontWeight: 500 }}>{searchResults.strategy}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: theme.muted, fontWeight: 600, marginBottom: 6 }}>OWNER</div>
+                    <div style={{ fontSize: 14, color: theme.text, fontWeight: 500 }}>{searchResults.owner}</div>
+                  </div>
+                </div>
+              </Card>
+            </div>
+            <Card style={{ padding: 20 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 20 }}>
+                <div>
+                  <div style={{ fontSize: 11, color: theme.muted, fontWeight: 600, marginBottom: 8 }}>LAST INTERACTION</div>
+                  <div style={{ fontSize: 14, color: theme.text, fontWeight: 600 }}>{searchResults.lastInteraction || "—"}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: theme.muted, fontWeight: 600, marginBottom: 8 }}>NEXT ACTION</div>
+                  <div style={{ fontSize: 14, color: theme.text, fontWeight: 600 }}>{searchResults.nextAction || "—"}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: theme.muted, fontWeight: 600, marginBottom: 8 }}>ENGAGEMENT STRATEGY</div>
+                  <div style={{ fontSize: 14, color: theme.text, fontWeight: 600 }}>{searchResults.strategy || "—"}</div>
+                </div>
+              </div>
+              {searchResults.notes && (
+                <div style={{ paddingTop: 20, borderTop: `1px solid ${theme.border}` }}>
+                  <div style={{ fontSize: 11, color: theme.muted, fontWeight: 600, marginBottom: 8 }}>NOTES</div>
+                  <div style={{ fontSize: 13, color: theme.text, lineHeight: 1.6 }}>{searchResults.notes}</div>
+                </div>
+              )}
+            </Card>
+            <button onClick={() => handleSearch("")} style={{ marginTop: 20, padding: "10px 20px", borderRadius: 8, border: `2px solid ${theme.border}`, background: "transparent", color: theme.text, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>← Back to Dashboard</button>
+          </Section>
+        )}
+
+        {!searchResults && data.length > 0 && (
           <div style={{ marginBottom: 40 }}>
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
               {[{ id: "all", label: `All (${data.length})` }, { id: "influencers", label: `High Influence (${data.filter(s => s.influence === "High" && s.interest === "High").length})` }, { id: "resistant", label: `Resistant (${data.filter(s => s.position === "Resistant").length})` }, { id: "priority", label: `Priority (${data.filter(s => s.priority === "High" && s.nextAction).length})` }].map(btn => <button key={btn.id} onClick={() => setFilter(btn.id)} style={{ padding: "10px 20px", borderRadius: 8, border: `2px solid ${filter === btn.id ? theme.accentL : theme.border}`, background: filter === btn.id ? `${theme.accentL}22` : "transparent", color: filter === btn.id ? theme.accentL : theme.text, fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all 0.2s", hover: { background: `${theme.accentL}11` } }}>{btn.label}</button>)}
@@ -207,7 +308,7 @@ export default function StakeholderDashboard() {
           </div>
         )}
 
-        {data.length > 0 && (
+        {!searchResults && data.length > 0 && (
           <>
             {/* PRIMARY METRICS - BIG & BOLD */}
             <MetricGrid items={[<MetricCard key="total" value={stats.total} label="Total Stakeholders" icon={Users} color={theme.accentL} />, <MetricCard key="high" value={stats.highPriority} label="High Priority" icon={AlertTriangle} color={levelColors.High} />, <MetricCard key="supp" value={stats.supportive} label="Supportive" icon={CheckCircle2} color={positionColors.Supportive} />, <MetricCard key="inf" value={stats.highInfluence} label="High Influence" icon={Zap} color="#fbbf24" />]} cols={4} />

@@ -21,8 +21,9 @@ const parseCSV = (csvText) => {
   return rows;
 };
 
-const mapRow = (row, id) => ({
-  id,
+const mapRow = (row) => ({
+  id: row[COLUMN_NAMES.id] || '',
+  entityType: row[COLUMN_NAMES.entityType] || '',
   name: row[COLUMN_NAMES.name] || '',
   category: row[COLUMN_NAMES.category] || '',
   organization: row[COLUMN_NAMES.organization] || '',
@@ -32,12 +33,10 @@ const mapRow = (row, id) => ({
   position: row[COLUMN_NAMES.position] || 'Neutral',
   strategy: row[COLUMN_NAMES.strategy] || '',
   owner: row[COLUMN_NAMES.owner] || '',
-  recentDevelopments: row[COLUMN_NAMES.recentDevelopments] || '',
-  engagementHistory: row[COLUMN_NAMES.engagementHistory] || '',
-  opportunityWindow: row[COLUMN_NAMES.opportunityWindow] || '',
   lastInteraction: row[COLUMN_NAMES.lastInteraction] || '',
   nextAction: row[COLUMN_NAMES.nextAction] || '',
   priority: row[COLUMN_NAMES.priority] || 'Medium',
+  notes: row[COLUMN_NAMES.notes] || '',
 });
 
 export const fetchStakeholders = async () => {
@@ -49,5 +48,5 @@ export const fetchStakeholders = async () => {
   const csvText = await response.text();
   const rows = parseCSV(csvText);
   
-  return rows.map((row, idx) => mapRow(row, idx + 1));
+  return rows.map((row) => mapRow(row));
 };

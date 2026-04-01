@@ -4,10 +4,8 @@ export const GOOGLE_SHEET_CONFIG = {
 };
 
 export const COLUMN_NAMES = {
-  name: "Stakeholder Name", category: "Category", organization: "Organization",
-  role: "Role in Ecosystem", influence: "Influence", interest: "Interest",
-  position: "Position", strategy: "Engagement Strategy", owner: "Owner",
-  recentDevelopments: "Recent Developments", engagementHistory: "Engagement History",
-  opportunityWindow: "Opportunity Window", lastInteraction: "Last Interaction Date",
-  nextAction: "Next Action", priority: "Priority"
+  id: "Stakeholder ID", entityType: "Entity Type", name: "Stakeholder Name", category: "Category", 
+  organization: "Organization", role: "Role in Ecosystem", influence: "Influence", interest: "Interest",
+  position: "Position", strategy: "Engagement Strategy", owner: "Owner", lastInteraction: "Last Interaction Date",
+  nextAction: "Next Action", priority: "Priority", notes: "Notes"
 };
