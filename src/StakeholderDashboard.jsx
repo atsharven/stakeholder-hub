@@ -7,6 +7,11 @@ const colors = { Government: "#818cf8", Political: "#a78bfa", "NGO/Civil Society
 const levelColors = { High: "#f87171", Medium: "#fbbf24", Low: "#34d399" };
 const positionColors = { Supportive: "#34d399", Neutral: "#94a3b8", Resistant: "#f87171" };
 
+// Reusable styles
+const buttonStyle = (active = false) => ({ padding: "10px 20px", borderRadius: 8, border: `2px solid ${active ? theme.accentL : theme.border}`, background: active ? `${theme.accentL}22` : "transparent", color: active ? theme.accentL : theme.text, fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all 0.2s" });
+const labelStyle = { fontSize: 11, color: theme.muted, fontWeight: 600, marginBottom: 8 };
+const dividerStyle = { paddingTop: 20, borderTop: `1px solid ${theme.border}` };
+
 // UI Components
 const Card = ({ children, style = {} }) => <div style={{ background: theme.card, border: `1px solid ${theme.border}`, borderRadius: 12, padding: 28, ...style }}>{children}</div>;
 const Section = ({ title, children }) => <div style={{ marginBottom: 40 }}><div style={{ fontSize: 18, fontWeight: 700, color: theme.text, marginBottom: 24 }}>{title}</div>{children}</div>;
@@ -19,7 +24,6 @@ const TwoCol = ({ left, right }) => <div style={{ display: "grid", gridTemplateC
 
 export default function StakeholderDashboard() {
   const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -34,7 +38,6 @@ export default function StakeholderDashboard() {
     } catch (err) {
       setError(err);
     } finally {
-      setLoading(false);
       setRefreshing(false);
     }
   };
@@ -49,6 +52,11 @@ export default function StakeholderDashboard() {
   const handleRefresh = async () => {
     setRefreshing(true);
     await loadData();
+    // Auto re-run search if active
+    if (searchQuery.trim() !== "") {
+      const result = data.find(s => s.name?.toLowerCase().includes(searchQuery.toLowerCase()) || s.id?.toLowerCase().includes(searchQuery.toLowerCase()));
+      setSearchResults(result || null);
+    }
   };
 
   const handleSearch = (query) => {
@@ -57,11 +65,12 @@ export default function StakeholderDashboard() {
       setSearchResults(null);
       return;
     }
-    const result = data.find(s => 
-      s.name?.toLowerCase().includes(query.toLowerCase()) || 
-      s.id?.toLowerCase().includes(query.toLowerCase())
-    );
+    const result = data.find(s => s.name?.toLowerCase().includes(query.toLowerCase()) || s.id?.toLowerCase().includes(query.toLowerCase()));
     setSearchResults(result || null);
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === "Escape") handleSearch("");
   };
 
   const filteredData = useMemo(() => {
@@ -140,7 +149,7 @@ export default function StakeholderDashboard() {
     return { total: withActions.length, rate: filteredData.length > 0 ? Math.round((withActions.length / filteredData.length) * 100) : 0 };
   }, [filteredData]);
 
-  if (loading) return <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: theme.bg, color: theme.muted }}>Loading...</div>;
+  if (data.length === 0 && !error) return <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: theme.bg, color: theme.muted }}>Loading...</div>;
 
   if (error) {
     return (
@@ -167,7 +176,7 @@ export default function StakeholderDashboard() {
             <h1 style={{ fontSize: 44, fontWeight: 800, color: theme.text, marginBottom: 8 }}>Stakeholder <span style={{ color: theme.accentL }}>Engagement</span></h1>
             <p style={{ fontSize: 15, color: theme.muted, fontWeight: 500 }}>{data.length === 0 ? "No data loaded" : `${data.length} stakeholders • ${Math.max(new Set(data.map(s => s.category)).size, 1)} categories`}</p>
           </div>
-          <button onClick={handleRefresh} disabled={refreshing} style={{ padding: "10px 16px", borderRadius: 8, border: `2px solid ${theme.border}`, background: refreshing ? `${theme.accentL}22` : "transparent", color: theme.accentL, fontSize: 13, fontWeight: 600, cursor: refreshing ? "wait" : "pointer", transition: "all 0.2s" }}>
+          <button onClick={handleRefresh} disabled={refreshing} style={{ ...buttonStyle(), background: refreshing ? `${theme.accentL}22` : "transparent", cursor: refreshing ? "wait" : "pointer" }}>
             {refreshing ? "🔄 Updating..." : "🔄 Refresh"}
           </button>
         </div>
@@ -175,38 +184,40 @@ export default function StakeholderDashboard() {
         {/* SEARCH SECTION */}
         {data.length > 0 && (
           <div style={{ marginBottom: 40 }}>
-            <input type="text" placeholder="🔍 Search by name or ID (e.g., 'Ajitabh' or 'P001')" value={searchQuery} onChange={(e) => handleSearch(e.target.value)} style={{ width: "100%", padding: "12px 16px", borderRadius: 8, border: `2px solid ${theme.border}`, background: theme.card, color: theme.text, fontSize: 14, transition: "border 0.2s" }} onFocus={(e) => e.target.style.borderColor = theme.accentL} onBlur={(e) => e.target.style.borderColor = theme.border} />
+            <input type="text" placeholder="🔍 Search by name or ID" value={searchQuery} onChange={(e) => handleSearch(e.target.value)} onKeyDown={handleKeyPress} style={{ width: "100%", padding: "12px 16px", borderRadius: 8, border: `2px solid ${theme.border}`, background: theme.card, color: theme.text, fontSize: 14 }} onFocus={(e) => e.target.style.borderColor = theme.accentL} onBlur={(e) => e.target.style.borderColor = theme.border} autoFocus />
+            {searchQuery && <button onClick={() => handleSearch("")} style={{ position: "absolute", right: 16, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: theme.muted, cursor: "pointer", fontSize: 18 }} title="Clear search (Esc)">✕</button>}
           </div>
         )}
 
-        {/* SEARCH RESULTS - Full Stakeholder Profile */}
+        {/* SEARCH RESULTS - Full Stakeholder Profile or No Results */}
+        {searchQuery && !searchResults && <div style={{ padding: 40, textAlign: "center", color: theme.muted, fontSize: 14 }}>✗ No stakeholder found. Try another name or ID.</div>}
         {searchResults && (
           <Section title={`🎯 Profile: ${searchResults.name} (${searchResults.id})`}>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 20, marginBottom: 40 }}>
               <Card>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                   <div>
-                    <div style={{ fontSize: 11, color: theme.muted, fontWeight: 600, marginBottom: 8 }}>ENTITY TYPE</div>
+                    <div style={labelStyle}>ENTITY TYPE</div>
                     <Badge label={searchResults.entityType} color={searchResults.entityType === "Person" ? "#a78bfa" : "#60a5fa"} />
                   </div>
                   <div>
-                    <div style={{ fontSize: 11, color: theme.muted, fontWeight: 600, marginBottom: 8 }}>CATEGORY</div>
+                    <div style={labelStyle}>CATEGORY</div>
                     <Badge label={searchResults.category} color={colors[searchResults.category] || theme.accentL} />
                   </div>
                   <div>
-                    <div style={{ fontSize: 11, color: theme.muted, fontWeight: 600, marginBottom: 8 }}>INFLUENCE</div>
+                    <div style={labelStyle}>INFLUENCE</div>
                     <Badge label={searchResults.influence} color={levelColors[searchResults.influence]} />
                   </div>
                   <div>
-                    <div style={{ fontSize: 11, color: theme.muted, fontWeight: 600, marginBottom: 8 }}>INTEREST</div>
+                    <div style={labelStyle}>INTEREST</div>
                     <Badge label={searchResults.interest} color={levelColors[searchResults.interest]} />
                   </div>
                   <div>
-                    <div style={{ fontSize: 11, color: theme.muted, fontWeight: 600, marginBottom: 8 }}>POSITION</div>
+                    <div style={labelStyle}>POSITION</div>
                     <Badge label={searchResults.position} color={positionColors[searchResults.position]} />
                   </div>
                   <div>
-                    <div style={{ fontSize: 11, color: theme.muted, fontWeight: 600, marginBottom: 8 }}>PRIORITY</div>
+                    <div style={labelStyle}>PRIORITY</div>
                     <Badge label={searchResults.priority} color={levelColors[searchResults.priority]} />
                   </div>
                 </div>
@@ -214,19 +225,19 @@ export default function StakeholderDashboard() {
               <Card>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 16 }}>
                   <div>
-                    <div style={{ fontSize: 11, color: theme.muted, fontWeight: 600, marginBottom: 6 }}>ORGANIZATION</div>
+                    <div style={labelStyle}>ORGANIZATION</div>
                     <div style={{ fontSize: 14, color: theme.text, fontWeight: 500 }}>{searchResults.organization}</div>
                   </div>
                   <div>
-                    <div style={{ fontSize: 11, color: theme.muted, fontWeight: 600, marginBottom: 6 }}>ROLE</div>
+                    <div style={labelStyle}>ROLE</div>
                     <div style={{ fontSize: 14, color: theme.text, fontWeight: 500 }}>{searchResults.role}</div>
                   </div>
                   <div>
-                    <div style={{ fontSize: 11, color: theme.muted, fontWeight: 600, marginBottom: 6 }}>STRATEGY</div>
+                    <div style={labelStyle}>STRATEGY</div>
                     <div style={{ fontSize: 14, color: theme.text, fontWeight: 500 }}>{searchResults.strategy}</div>
                   </div>
                   <div>
-                    <div style={{ fontSize: 11, color: theme.muted, fontWeight: 600, marginBottom: 6 }}>OWNER</div>
+                    <div style={labelStyle}>OWNER</div>
                     <div style={{ fontSize: 14, color: theme.text, fontWeight: 500 }}>{searchResults.owner}</div>
                   </div>
                 </div>
@@ -235,33 +246,33 @@ export default function StakeholderDashboard() {
             <Card style={{ padding: 20 }}>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 20 }}>
                 <div>
-                  <div style={{ fontSize: 11, color: theme.muted, fontWeight: 600, marginBottom: 8 }}>LAST INTERACTION</div>
+                  <div style={labelStyle}>LAST INTERACTION</div>
                   <div style={{ fontSize: 14, color: theme.text, fontWeight: 600 }}>{searchResults.lastInteraction || "—"}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: 11, color: theme.muted, fontWeight: 600, marginBottom: 8 }}>NEXT ACTION</div>
+                  <div style={labelStyle}>NEXT ACTION</div>
                   <div style={{ fontSize: 14, color: theme.text, fontWeight: 600 }}>{searchResults.nextAction || "—"}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: 11, color: theme.muted, fontWeight: 600, marginBottom: 8 }}>ENGAGEMENT STRATEGY</div>
+                  <div style={labelStyle}>ENGAGEMENT STRATEGY</div>
                   <div style={{ fontSize: 14, color: theme.text, fontWeight: 600 }}>{searchResults.strategy || "—"}</div>
                 </div>
               </div>
               {searchResults.notes && (
-                <div style={{ paddingTop: 20, borderTop: `1px solid ${theme.border}` }}>
-                  <div style={{ fontSize: 11, color: theme.muted, fontWeight: 600, marginBottom: 8 }}>NOTES</div>
+                <div style={dividerStyle}>
+                  <div style={labelStyle}>NOTES</div>
                   <div style={{ fontSize: 13, color: theme.text, lineHeight: 1.6 }}>{searchResults.notes}</div>
                 </div>
               )}
             </Card>
-            <button onClick={() => handleSearch("")} style={{ marginTop: 20, padding: "10px 20px", borderRadius: 8, border: `2px solid ${theme.border}`, background: "transparent", color: theme.text, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>← Back to Dashboard</button>
+            <button onClick={() => handleSearch("")} style={buttonStyle()}>← Back to Dashboard</button>
           </Section>
         )}
 
         {!searchResults && data.length > 0 && (
           <div style={{ marginBottom: 40 }}>
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-              {[{ id: "all", label: `All (${data.length})` }, { id: "influencers", label: `High Influence (${data.filter(s => s.influence === "High" && s.interest === "High").length})` }, { id: "resistant", label: `Resistant (${data.filter(s => s.position === "Resistant").length})` }, { id: "priority", label: `Priority (${data.filter(s => s.priority === "High" && s.nextAction).length})` }].map(btn => <button key={btn.id} onClick={() => setFilter(btn.id)} style={{ padding: "10px 20px", borderRadius: 8, border: `2px solid ${filter === btn.id ? theme.accentL : theme.border}`, background: filter === btn.id ? `${theme.accentL}22` : "transparent", color: filter === btn.id ? theme.accentL : theme.text, fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all 0.2s", hover: { background: `${theme.accentL}11` } }}>{btn.label}</button>)}
+              {[{ id: "all", label: `All (${data.length})` }, { id: "influencers", label: `High Influence (${data.filter(s => s.influence === "High" && s.interest === "High").length})` }, { id: "resistant", label: `Resistant (${data.filter(s => s.position === "Resistant").length})` }, { id: "priority", label: `Priority (${data.filter(s => s.priority === "High" && s.nextAction).length})` }].map(btn => <button key={btn.id} onClick={() => setFilter(btn.id)} style={buttonStyle(filter === btn.id)}>{btn.label}</button>)}
             </div>
           </div>
         )}
@@ -319,8 +330,8 @@ export default function StakeholderDashboard() {
             {/* STRATEGIC BREAKDOWN */}
             <TwoCol left={<Card><div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 20 }}>🎯 Positioning</div>{positionBreakdown.map(item => <ProgressBar key={item.name} label={item.name} value={item.value} total={stats.total} color={item.color} />)}</Card>} right={<Card><div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 20 }}>📁 Categories</div>{categoryBreakdown.map(item => <ProgressBar key={item.name} label={item.name} value={item.value} total={stats.total} color={colors[item.name] || theme.accentL} />)}</Card>} />
 
-            {/* RISK & ALLIES */}
-            <TwoCol left={<Card><div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 20 }}>⚠️ Risks</div><div style={{ fontSize: 40, fontWeight: 800, color: "#f87171", marginBottom: 8 }}>{risks.length}</div><div style={{ fontSize: 13, color: theme.muted, marginBottom: 16 }}>High influence, low interest</div>{risks.length > 0 && <div style={{ paddingTop: 16, borderTop: `1px solid ${theme.border}`, fontSize: 12 }}>{risks.slice(0, 3).map(s => <div key={s.id} style={{ color: theme.text, marginBottom: 6 }}>• {s.name}</div>)}</div>}</Card>} right={<Card><div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 20 }}>🤝 Allies</div><div style={{ fontSize: 40, fontWeight: 800, color: "#34d399", marginBottom: 8 }}>{allies.length}</div><div style={{ fontSize: 13, color: theme.muted, marginBottom: 16 }}>Medium influence, high interest</div>{allies.length > 0 && <div style={{ paddingTop: 16, borderTop: `1px solid ${theme.border}`, fontSize: 12 }}>{allies.slice(0, 3).map(s => <div key={s.id} style={{ color: theme.text, marginBottom: 6 }}>• {s.name}</div>)}</div>}</Card>} />
+            {/* RISK & ALLIES - CLICKABLE */}
+            <TwoCol left={<Card style={{ cursor: "pointer" }} onClick={() => risks[0] && handleSearch(risks[0].name)}><div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 16 }}>⚠️ Risks</div><div style={{ fontSize: 36, fontWeight: 800, color: "#f87171", marginBottom: 8 }}>{risks.length}</div><div style={{ fontSize: 13, color: theme.muted, marginBottom: 16 }}>Click to view details</div>{risks.length > 0 && <div style={{ fontSize: 12, paddingTop: 12, borderTop: `1px solid ${theme.border}` }}>{risks.slice(0, 3).map(s => <div key={s.id} style={{ color: theme.text, marginBottom: 6, cursor: "pointer", padding: 6, borderRadius: 4, background: `${theme.bg}` }} onClick={(e) => { e.stopPropagation(); handleSearch(s.name); }}>→ {s.name}</div>)}</div>}</Card>} right={<Card style={{ cursor: "pointer" }} onClick={() => allies[0] && handleSearch(allies[0].name)}><div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 16 }}>🤝 Allies</div><div style={{ fontSize: 36, fontWeight: 800, color: "#34d399", marginBottom: 8 }}>{allies.length}</div><div style={{ fontSize: 13, color: theme.muted, marginBottom: 16 }}>Click to view details</div>{allies.length > 0 && <div style={{ fontSize: 12, paddingTop: 12, borderTop: `1px solid ${theme.border}` }}>{allies.slice(0, 3).map(s => <div key={s.id} style={{ color: theme.text, marginBottom: 6, cursor: "pointer", padding: 6, borderRadius: 4, background: `${theme.bg}` }} onClick={(e) => { e.stopPropagation(); handleSearch(s.name); }}>→ {s.name}</div>)}</div>}</Card>} />
 
             {/* TYPE ANALYSIS */}
             <Card style={{ marginBottom: 40 }}>
