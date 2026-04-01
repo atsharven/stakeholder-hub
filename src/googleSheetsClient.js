@@ -40,7 +40,9 @@ const mapRow = (row) => ({
 });
 
 export const fetchStakeholders = async () => {
-  const csvUrl = GOOGLE_SHEET_CONFIG.getCsvUrl();
+  // Add cache-busting parameter to force fresh data
+  const baseUrl = GOOGLE_SHEET_CONFIG.getCsvUrl();
+  const csvUrl = baseUrl + '&t=' + Date.now();
   const response = await fetch(csvUrl, { mode: 'cors' });
   
   if (!response.ok) throw new Error(`HTTP ${response.status}`);

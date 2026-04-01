@@ -7,14 +7,15 @@ const colors = { Government: "#818cf8", Political: "#a78bfa", "NGO/Civil Society
 const levelColors = { High: "#f87171", Medium: "#fbbf24", Low: "#34d399" };
 const positionColors = { Supportive: "#34d399", Neutral: "#94a3b8", Resistant: "#f87171" };
 
+// UI Components
 const Card = ({ children, style = {} }) => <div style={{ background: theme.card, border: `1px solid ${theme.border}`, borderRadius: 12, padding: 28, ...style }}>{children}</div>;
 const Section = ({ title, children }) => <div style={{ marginBottom: 40 }}><div style={{ fontSize: 18, fontWeight: 700, color: theme.text, marginBottom: 24 }}>{title}</div>{children}</div>;
-const MetricCard = ({ value, label, color, icon: Icon }) => <div style={{ background: theme.bg, borderRadius: 12, padding: 24, border: `1px solid ${theme.border}`, textAlign: "center" }}><Icon size={28} color={color} style={{ marginBottom: 12, opacity: 0.8 }} /><div style={{ fontSize: 44, fontWeight: 800, color, marginBottom: 8 }}>{value}</div><div style={{ fontSize: 13, color: theme.muted, fontWeight: 500 }}>{label}</div></div>;
-const MetricGrid = ({ items, cols = 2 }) => <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 20, marginBottom: 40 }}>{items}</div>;
 const Badge = ({ label, color = theme.muted }) => <span style={{ display: "inline-block", padding: "4px 12px", borderRadius: 6, fontSize: 11, fontWeight: 600, background: `${color}22`, color, border: `1px solid ${color}44` }}>{label}</span>;
 const ProgressBar = ({ label, value, total, color }) => <div style={{ marginBottom: 16 }}><div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}><span style={{ fontSize: 14, color: theme.text, fontWeight: 500 }}>{label}</span><span style={{ fontSize: 16, fontWeight: 700, color }}>{value} ({Math.round(value/total * 100)}%)</span></div><div style={{ width: "100%", height: 12, background: theme.bg, borderRadius: 6, overflow: "hidden" }}><div style={{ width: `${(value/total) * 100}%`, height: "100%", background: color, transition: "width 0.4s" }} /></div></div>;
-const TwoCol = ({ left, right }) => <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 20, marginBottom: 40 }}>{left}{right}</div>;
 
+
+const MetricCard = ({ value, label, color, icon: Icon }) => <Card style={{ textAlign: "center" }}><Icon size={28} color={color} style={{ marginBottom: 12, opacity: 0.8 }} /><div style={{ fontSize: 44, fontWeight: 800, color, marginBottom: 8 }}>{value}</div><div style={{ fontSize: 13, color: theme.muted, fontWeight: 500 }}>{label}</div></Card>;
+const TwoCol = ({ left, right }) => <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 20, marginBottom: 40 }}>{left}{right}</div>;
 
 export default function StakeholderDashboard() {
   const [data, setData] = useState([]);
@@ -23,21 +24,32 @@ export default function StakeholderDashboard() {
   const [filter, setFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadData = async () => {
+    try {
+      setError(null);
+      const stakeholders = await fetchStakeholders();
+      setData(stakeholders);
+    } catch (err) {
+      setError(err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        setError(null);
-        const stakeholders = await fetchStakeholders();
-        setData(stakeholders);
-      } catch (err) {
-        setError(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
+    loadData();
+    // Auto-refresh every 30 seconds
+    const interval = setInterval(loadData, 30000);
+    return () => clearInterval(interval);
   }, []);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
+  };
 
   const handleSearch = (query) => {
     setSearchQuery(query);
@@ -62,131 +74,71 @@ export default function StakeholderDashboard() {
   const stats = useMemo(() => ({
     total: filteredData.length,
     supportive: filteredData.filter(s => s.position === "Supportive").length,
-    resistant: filteredData.filter(s => s.position === "Resistant").length,
     highPriority: filteredData.filter(s => s.priority === "High").length,
     highInfluence: filteredData.filter(s => s.influence === "High").length,
-    highInterest: filteredData.filter(s => s.interest === "High").length,
   }), [filteredData]);
 
-  const categoryBreakdown = useMemo(() => {
-    const cats = {};
-    filteredData.forEach(s => {
-      cats[s.category] = (cats[s.category] || 0) + 1;
-    });
-    return Object.entries(cats)
+  const categoryBreakdown = useMemo(() => 
+    Object.entries(filteredData.reduce((acc, s) => {
+      acc[s.category] = (acc[s.category] || 0) + 1;
+      return acc;
+    }, {}))
       .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value);
-  }, [filteredData]);
+      .sort((a, b) => b.value - a.value),
+  [filteredData]);
 
-  const priorityBreakdown = useMemo(() => {
-    const prio = { High: 0, Medium: 0, Low: 0 };
-    filteredData.forEach(s => {
-      if (prio.hasOwnProperty(s.priority)) prio[s.priority]++;
-    });
-    return [
-      { name: "High", value: prio.High, color: levelColors.High },
-      { name: "Medium", value: prio.Medium, color: levelColors.Medium },
-      { name: "Low", value: prio.Low, color: levelColors.Low },
-    ];
-  }, [filteredData]);
-
-  const influenceInterestMatrix = useMemo(() => {
-    const matrix = {
-      "High-High": 0,
-      "High-Medium": 0,
-      "High-Low": 0,
-      "Medium-High": 0,
-      "Medium-Medium": 0,
-      "Medium-Low": 0,
-      "Low-High": 0,
-      "Low-Medium": 0,
-      "Low-Low": 0,
-    };
-    filteredData.forEach(s => {
-      const key = `${s.influence}-${s.interest}`;
-      if (matrix.hasOwnProperty(key)) matrix[key]++;
-    });
-    return matrix;
-  }, [filteredData]);
+  const influenceInterestMatrix = useMemo(() => 
+    filteredData.reduce((acc, s) => {
+      acc[`${s.influence}-${s.interest}`] = (acc[`${s.influence}-${s.interest}`] || 0) + 1;
+      return acc;
+    }, {
+      "High-High": 0, "High-Medium": 0, "High-Low": 0,
+      "Medium-High": 0, "Medium-Medium": 0, "Medium-Low": 0,
+      "Low-High": 0, "Low-Medium": 0, "Low-Low": 0,
+    }),
+  [filteredData]);
 
   const positionBreakdown = useMemo(() => {
-    const pos = { Supportive: 0, Neutral: 0, Resistant: 0 };
-    filteredData.forEach(s => {
-      if (pos.hasOwnProperty(s.position)) pos[s.position]++;
-    });
+    const counts = filteredData.reduce((acc, s) => {
+      acc[s.position] = (acc[s.position] || 0) + 1;
+      return acc;
+    }, {});
     return [
-      { name: "Supportive", value: pos.Supportive, color: positionColors.Supportive },
-      { name: "Neutral", value: pos.Neutral, color: positionColors.Neutral },
-      { name: "Resistant", value: pos.Resistant, color: positionColors.Resistant },
+      { name: "Supportive", value: counts.Supportive || 0, color: positionColors.Supportive },
+      { name: "Neutral", value: counts.Neutral || 0, color: positionColors.Neutral },
+      { name: "Resistant", value: counts.Resistant || 0, color: positionColors.Resistant },
     ];
-  }, [filteredData]);
-
-  const recentInteractions = useMemo(() => {
-    return [...filteredData]
-      .filter(s => s.lastInteraction)
-      .sort((a, b) => b.lastInteraction.localeCompare(a.lastInteraction))
-      .slice(0, 5);
-  }, [filteredData]);
-
-  const upcomingActions = useMemo(() => {
-    return [...filteredData]
-      .filter(s => s.nextAction)
-      .sort((a, b) => (a.priority === "High" ? -1 : 1))
-      .slice(0, 5);
   }, [filteredData]);
 
   const risks = useMemo(() => filteredData.filter(s => s.influence === "High" && s.interest === "Low"), [filteredData]);
   const allies = useMemo(() => filteredData.filter(s => s.influence === "Medium" && s.interest === "High"), [filteredData]);
 
-  const peopleVsInstitutions = useMemo(() => {
-    const people = filteredData.filter(s => s.entityType === "Person").length;
-    return { people, institutions: filteredData.filter(s => s.entityType === "Institution").length };
+  const entityTypeBreakdown = useMemo(() => {
+    const counts = filteredData.reduce((acc, s) => {
+      acc[s.entityType] = (acc[s.entityType] || 0) + 1;
+      return acc;
+    }, {});
+    return { people: counts.Person || 0, institutions: counts.Institution || 0 };
   }, [filteredData]);
 
-  const policyVsImplementation = useMemo(() => {
-    const policy = filteredData.filter(s => s.role && (s.role.toLowerCase().includes('minister') || s.role.toLowerCase().includes('policy') || s.role.toLowerCase().includes('director'))).length;
-    return { policy, implementation: Math.max(0, filteredData.length - policy) };
-  }, [filteredData]);
-
-  // NEW: Engagement Scoring (0-100)
   const engagementScores = useMemo(() => {
-    const scores = filteredData.map(s => {
+    let totalScore = 0, highCount = 0;
+    filteredData.forEach(s => {
       const influenceScore = s.influence === "High" ? 40 : s.influence === "Medium" ? 25 : 10;
       const interestScore = s.interest === "High" ? 30 : s.interest === "Medium" ? 15 : 5;
       const positionScore = s.position === "Supportive" ? 25 : s.position === "Neutral" ? 12 : 0;
-      return Math.min(100, influenceScore + interestScore + positionScore);
+      const score = Math.min(100, influenceScore + interestScore + positionScore);
+      totalScore += score;
+      if (score >= 75) highCount++;
     });
-    const avg = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b) / scores.length) : 0;
-    const high = scores.filter(s => s >= 75).length;
-    return { average: avg, high, scores };
+    const avg = filteredData.length > 0 ? Math.round(totalScore / filteredData.length) : 0;
+    return { average: avg, high: highCount };
   }, [filteredData]);
 
-  // NEW: Action Priority Tracking
   const actionTracking = useMemo(() => {
     const withActions = filteredData.filter(s => s.nextAction);
-    const high = withActions.filter(s => s.priority === "High").length;
-    const medium = withActions.filter(s => s.priority === "Medium").length;
-    const low = withActions.filter(s => s.priority === "Low").length;
-    return { total: withActions.length, high, medium, low, rate: filteredData.length > 0 ? Math.round((withActions.length / filteredData.length) * 100) : 0 };
+    return { total: withActions.length, rate: filteredData.length > 0 ? Math.round((withActions.length / filteredData.length) * 100) : 0 };
   }, [filteredData]);
-
-  // NEW: Satisfaction Index (combination factors)
-  const satisfactionIndex = useMemo(() => {
-    const supportive = filteredData.filter(s => s.position === "Supportive").length;
-    const engaged = filteredData.filter(s => s.interest === "High").length;
-    const active = filteredData.filter(s => s.lastInteraction).length;
-    const avgScore = filteredData.length > 0 ? Math.round(((supportive * 0.4 + engaged * 0.35 + active * 0.25) / filteredData.length) * 100) : 0;
-    return { score: Math.min(100, avgScore), supportive, engaged, active };
-  }, [filteredData]);
-
-  // NEW: Quick KPI Summary
-  const kpiSummary = useMemo(() => {
-    const total = filteredData.length;
-    const coverage = total > 0 ? Math.round((total / (data.length || 1)) * 100) : 0;
-    const engagementRate = actionTracking.rate;
-    const healthScore = Math.round((engagementScores.average * 0.4 + satisfactionIndex.score * 0.4 + engagementRate * 0.2));
-    return { total, coverage, engagementRate, healthScore };
-  }, [filteredData, data.length, actionTracking.rate, engagementScores.average, satisfactionIndex.score]);
 
   if (loading) return <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: theme.bg, color: theme.muted }}>Loading...</div>;
 
@@ -209,10 +161,16 @@ export default function StakeholderDashboard() {
 
   return (
     <div style={{ background: theme.bg, minHeight: "100vh", padding: 32, fontFamily: "system-ui", lineHeight: 1.6 }}>
-      <style>{`body{background:${theme.bg};color:${theme.text};}*{margin:0;padding:0;box-sizing:border-box;}`}</style>
       <div style={{ maxWidth: 1600, margin: "0 auto" }}>
-        <h1 style={{ fontSize: 44, fontWeight: 800, color: theme.text, marginBottom: 8 }}>Stakeholder <span style={{ color: theme.accentL }}>Engagement</span></h1>
-        <p style={{ fontSize: 15, color: theme.muted, marginBottom: 40, fontWeight: 500 }}>{data.length === 0 ? "No data loaded" : `${data.length} stakeholders • ${Math.max(new Set(data.map(s => s.category)).size, 1)} categories`}</p>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 40 }}>
+          <div>
+            <h1 style={{ fontSize: 44, fontWeight: 800, color: theme.text, marginBottom: 8 }}>Stakeholder <span style={{ color: theme.accentL }}>Engagement</span></h1>
+            <p style={{ fontSize: 15, color: theme.muted, fontWeight: 500 }}>{data.length === 0 ? "No data loaded" : `${data.length} stakeholders • ${Math.max(new Set(data.map(s => s.category)).size, 1)} categories`}</p>
+          </div>
+          <button onClick={handleRefresh} disabled={refreshing} style={{ padding: "10px 16px", borderRadius: 8, border: `2px solid ${theme.border}`, background: refreshing ? `${theme.accentL}22` : "transparent", color: theme.accentL, fontSize: 13, fontWeight: 600, cursor: refreshing ? "wait" : "pointer", transition: "all 0.2s" }}>
+            {refreshing ? "🔄 Updating..." : "🔄 Refresh"}
+          </button>
+        </div>
 
         {/* SEARCH SECTION */}
         {data.length > 0 && (
@@ -311,18 +269,51 @@ export default function StakeholderDashboard() {
         {!searchResults && data.length > 0 && (
           <>
             {/* PRIMARY METRICS - BIG & BOLD */}
-            <MetricGrid items={[<MetricCard key="total" value={stats.total} label="Total Stakeholders" icon={Users} color={theme.accentL} />, <MetricCard key="high" value={stats.highPriority} label="High Priority" icon={AlertTriangle} color={levelColors.High} />, <MetricCard key="supp" value={stats.supportive} label="Supportive" icon={CheckCircle2} color={positionColors.Supportive} />, <MetricCard key="inf" value={stats.highInfluence} label="High Influence" icon={Zap} color="#fbbf24" />]} cols={4} />
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 20, marginBottom: 40 }}>
+              <MetricCard key="total" value={stats.total} label="Total Stakeholders" icon={Users} color={theme.accentL} />
+              <MetricCard key="high" value={stats.highPriority} label="High Priority" icon={AlertTriangle} color={levelColors.High} />
+              <MetricCard key="supp" value={stats.supportive} label="Supportive" icon={CheckCircle2} color={positionColors.Supportive} />
+              <MetricCard key="inf" value={stats.highInfluence} label="High Influence" icon={Zap} color="#fbbf24" />
+            </div>
 
             {/* HEALTH DASHBOARD */}
-            <TwoCol left={<Card><div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 28 }}>📊 Health Score</div><div style={{ fontSize: 54, fontWeight: 800, color: kpiSummary.healthScore >= 70 ? "#34d399" : kpiSummary.healthScore >= 50 ? "#fbbf24" : "#f87171", marginBottom: 12 }}>{kpiSummary.healthScore}</div><div style={{ fontSize: 13, color: theme.muted, marginBottom: 24 }}>Overall engagement quality</div><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, paddingTop: 24, borderTop: `1px solid ${theme.border}` }}><div><div style={{ fontSize: 11, color: theme.muted, marginBottom: 8, fontWeight: 600 }}>ENGAGEMENT RATE</div><div style={{ fontSize: 32, fontWeight: 700, color: theme.accentL }}>{actionTracking.rate}%</div></div><div><div style={{ fontSize: 11, color: theme.muted, marginBottom: 8, fontWeight: 600 }}>COVERAGE</div><div style={{ fontSize: 32, fontWeight: 700, color: "#a78bfa" }}>{kpiSummary.coverage}%</div></div></div></Card>} right={<Card><div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 28 }}>💪 Engagement Avg</div><div style={{ fontSize: 54, fontWeight: 800, color: theme.accentL, marginBottom: 12 }}>{engagementScores.average}</div><div style={{ fontSize: 13, color: theme.muted, marginBottom: 24 }}>{engagementScores.high} highly engaged stakeholders</div><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, paddingTop: 24, borderTop: `1px solid ${theme.border}` }}><div><div style={{ fontSize: 11, color: theme.muted, marginBottom: 8, fontWeight: 600 }}>SUPPORTIVE</div><div style={{ fontSize: 32, fontWeight: 700, color: positionColors.Supportive }}>{satisfactionIndex.supportive}</div></div><div><div style={{ fontSize: 11, color: theme.muted, marginBottom: 8, fontWeight: 600 }}>ACTIVE</div><div style={{ fontSize: 32, fontWeight: 700, color: "#f59e0b" }}>{satisfactionIndex.active}</div></div></div></Card>} />
+            <TwoCol left={<Card><div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 28 }}>📊 Health Score</div><div style={{ fontSize: 54, fontWeight: 800, color: engagementScores.average >= 70 ? "#34d399" : engagementScores.average >= 50 ? "#fbbf24" : "#f87171", marginBottom: 12 }}>{engagementScores.average}</div><div style={{ fontSize: 13, color: theme.muted, marginBottom: 24 }}>Avg engagement quality</div><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, paddingTop: 24, borderTop: `1px solid ${theme.border}` }}><div><div style={{ fontSize: 11, color: theme.muted, marginBottom: 8, fontWeight: 600 }}>ACTIONS</div><div style={{ fontSize: 32, fontWeight: 700, color: theme.accentL }}>{actionTracking.total}</div></div><div><div style={{ fontSize: 11, color: theme.muted, marginBottom: 8, fontWeight: 600 }}>ENGAGEMENT</div><div style={{ fontSize: 32, fontWeight: 700, color: "#a78bfa" }}>{actionTracking.rate}%</div></div></div></Card>} right={<Card><div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 28 }}>⚡ Engagement Rate</div><div style={{ fontSize: 54, fontWeight: 800, color: theme.accentL, marginBottom: 12 }}>{actionTracking.rate}%</div><div style={{ fontSize: 13, color: theme.muted, marginBottom: 24 }}>{actionTracking.total} stakeholders with next actions</div><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, paddingTop: 24, borderTop: `1px solid ${theme.border}` }}><div><div style={{ fontSize: 11, color: theme.muted, marginBottom: 8, fontWeight: 600 }}>HIGH SCORES</div><div style={{ fontSize: 32, fontWeight: 700, color: positionColors.Supportive }}>{engagementScores.high}</div></div><div><div style={{ fontSize: 11, color: theme.muted, marginBottom: 8, fontWeight: 600 }}>SUPPORTIVE</div><div style={{ fontSize: 32, fontWeight: 700, color: "#f59e0b" }}>{stats.supportive}</div></div></div></Card>} />
 
-            {/* INFLUENCE/INTEREST MATRIX */}
-            <Section title="📊 Influence / Interest Matrix">
-              <Card><div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 24 }}>{["High", "Medium", "Low"].map(int => ["High", "Medium", "Low"].map(inf => {
-                const key = `${inf}-${int}`;
-                const count = influenceInterestMatrix[key];
-                return <div key={key} style={{ background: theme.bg, borderRadius: 8, padding: 20, textAlign: "center", border: `1px solid ${theme.border}` }}><div style={{ fontSize: 36, fontWeight: 800, color: theme.accentL, marginBottom: 6 }}>{count}</div><div style={{ fontSize: 12, color: theme.muted, fontWeight: 500 }}>{inf} Inf<br/>{int} Int</div></div>;
-              }))}</div></Card>
+            {/* INFLUENCE/INTEREST HEATMAP */}
+            <Section title="🔥 Influence × Interest Heatmap">
+              <Card>
+                <div style={{ overflowX: "auto" }}>
+                  <div style={{ minWidth: 650, display: "grid", gridTemplateColumns: "120px repeat(3, 1fr)", gap: 2, padding: 2, background: theme.border, borderRadius: 8, overflow: "hidden" }}>
+                    {/* Header row */}
+                    <div style={{ background: theme.card, padding: 14, fontSize: 11, fontWeight: 600, color: theme.muted, textAlign: "center" }}>INTEREST</div>
+                    {["High", "Medium", "Low"].map(inf => <div key={inf} style={{ background: theme.card, padding: 14, fontSize: 11, fontWeight: 600, color: theme.muted, textAlign: "center" }}>Influence: {inf}</div>)}
+                    
+                    {/* Data rows */}
+                    {["High", "Medium", "Low"].map(int => {
+                      const maxCount = Math.max(...Object.values(influenceInterestMatrix));
+                      return (
+                        <div key={int} style={{ gridColumn: "1 / -1", display: "contents" }}>
+                          <div style={{ background: theme.card, padding: 14, fontSize: 11, fontWeight: 600, color: theme.muted, textAlign: "center" }}>{int}</div>
+                          {["High", "Medium", "Low"].map(inf => {
+                            const count = influenceInterestMatrix[`${inf}-${int}`] || 0;
+                            const intensity = maxCount > 0 ? count / maxCount : 0;
+                            const bgColor = intensity === 0 ? theme.bg : `hsla(218, 90%, 50%, ${0.2 + intensity * 0.6})`;
+                            return (
+                              <div key={`${inf}-${int}`} style={{ background: bgColor, padding: 20, textAlign: "center", minHeight: 70, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", borderRadius: 4 }}>
+                                <div style={{ fontSize: 24, fontWeight: 800, color: intensity > 0.5 ? theme.text : theme.muted, marginBottom: 6 }}>{count}</div>
+                                <div style={{ fontSize: 10, color: intensity > 0.5 ? theme.text : theme.muted, opacity: 0.8 }}>stakeholders</div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div style={{ marginTop: 20, paddingTop: 20, borderTop: `1px solid ${theme.border}`, fontSize: 12, color: theme.muted }}>
+                    <strong style={{ color: theme.text }}>Reading the matrix:</strong> Darker cells = more stakeholders. High/High = supporters, High/Low = risks, Low/High = potential allies.
+                  </div>
+                </div>
+              </Card>
             </Section>
 
             {/* STRATEGIC BREAKDOWN */}
@@ -332,7 +323,11 @@ export default function StakeholderDashboard() {
             <TwoCol left={<Card><div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 20 }}>⚠️ Risks</div><div style={{ fontSize: 40, fontWeight: 800, color: "#f87171", marginBottom: 8 }}>{risks.length}</div><div style={{ fontSize: 13, color: theme.muted, marginBottom: 16 }}>High influence, low interest</div>{risks.length > 0 && <div style={{ paddingTop: 16, borderTop: `1px solid ${theme.border}`, fontSize: 12 }}>{risks.slice(0, 3).map(s => <div key={s.id} style={{ color: theme.text, marginBottom: 6 }}>• {s.name}</div>)}</div>}</Card>} right={<Card><div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 20 }}>🤝 Allies</div><div style={{ fontSize: 40, fontWeight: 800, color: "#34d399", marginBottom: 8 }}>{allies.length}</div><div style={{ fontSize: 13, color: theme.muted, marginBottom: 16 }}>Medium influence, high interest</div>{allies.length > 0 && <div style={{ paddingTop: 16, borderTop: `1px solid ${theme.border}`, fontSize: 12 }}>{allies.slice(0, 3).map(s => <div key={s.id} style={{ color: theme.text, marginBottom: 6 }}>• {s.name}</div>)}</div>}</Card>} />
 
             {/* TYPE ANALYSIS */}
-            <TwoCol left={<Card><div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 20 }}>👥 People vs Institutions</div><ProgressBar label="Individuals" value={peopleVsInstitutions.people} total={stats.total} color="#a78bfa" /><ProgressBar label="Institutions" value={peopleVsInstitutions.institutions} total={stats.total} color="#60a5fa" /></Card>} right={<Card><div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 20 }}>📋 Policy vs Implementation</div><ProgressBar label="Policy Leaders" value={policyVsImplementation.policy} total={stats.total} color="#f59e0b" /><ProgressBar label="Implementers" value={policyVsImplementation.implementation} total={stats.total} color="#8b5cf6" /></Card>} />
+            <Card style={{ marginBottom: 40 }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 20 }}>👥 People vs Institutions</div>
+              <ProgressBar label="Individuals" value={entityTypeBreakdown.people} total={stats.total} color="#a78bfa" />
+              <ProgressBar label="Institutions" value={entityTypeBreakdown.institutions} total={stats.total} color="#60a5fa" />
+            </Card>
 
             {/* TOP STAKEHOLDERS - Simplified */}
             <Section title="👥 Top Stakeholders">
