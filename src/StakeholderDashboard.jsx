@@ -1,18 +1,19 @@
 import { fetchStakeholders } from './googleSheetsClient'
 import { useState, useMemo, useEffect } from "react";
-import { Users, AlertTriangle, CheckCircle2, Activity, Lightbulb, Zap, Info } from "lucide-react";
+import { Users, AlertTriangle, CheckCircle2, Zap } from "lucide-react";
 
 const theme = { bg: "#0d1117", card: "#161b22", border: "#21262d", text: "#e2e8f0", muted: "#8b949e", accentL: "#818cf8" };
 const colors = { Government: "#818cf8", Political: "#a78bfa", "NGO/Civil Society": "#34d399", Corporate: "#60a5fa", Academic: "#f59e0b", Media: "#fb7185", Community: "#f97316", International: "#2dd4bf" };
 const levelColors = { High: "#f87171", Medium: "#fbbf24", Low: "#34d399" };
 const positionColors = { Supportive: "#34d399", Neutral: "#94a3b8", Resistant: "#f87171" };
 
-const Card = ({ children, style = {} }) => <div style={{ background: theme.card, border: `1px solid ${theme.border}`, borderRadius: 12, padding: 20, ...style }}>{children}</div>;
-const StatCard = ({ label, value, icon: Icon, color }) => <Card style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}><div><div style={{ fontSize: 12, color: theme.muted, marginBottom: 8 }}>{label}</div><div style={{ fontSize: 32, fontWeight: 700, color: theme.text }}>{value}</div></div><Icon size={24} color={color} style={{ opacity: 0.7 }} /></Card>;
+const Card = ({ children, style = {} }) => <div style={{ background: theme.card, border: `1px solid ${theme.border}`, borderRadius: 12, padding: 28, ...style }}>{children}</div>;
+const Section = ({ title, children }) => <div style={{ marginBottom: 40 }}><div style={{ fontSize: 18, fontWeight: 700, color: theme.text, marginBottom: 24 }}>{title}</div>{children}</div>;
+const MetricCard = ({ value, label, color, icon: Icon }) => <div style={{ background: theme.bg, borderRadius: 12, padding: 24, border: `1px solid ${theme.border}`, textAlign: "center" }}><Icon size={28} color={color} style={{ marginBottom: 12, opacity: 0.8 }} /><div style={{ fontSize: 44, fontWeight: 800, color, marginBottom: 8 }}>{value}</div><div style={{ fontSize: 13, color: theme.muted, fontWeight: 500 }}>{label}</div></div>;
+const MetricGrid = ({ items, cols = 2 }) => <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 20, marginBottom: 40 }}>{items}</div>;
 const Badge = ({ label, color = theme.muted }) => <span style={{ display: "inline-block", padding: "4px 12px", borderRadius: 6, fontSize: 11, fontWeight: 600, background: `${color}22`, color, border: `1px solid ${color}44` }}>{label}</span>;
-const GaugeChart = ({ value = 50, label, color = theme.accentL }) => <div><div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6, fontSize: 11 }}><span style={{ color: theme.text, fontWeight: 500 }}>{label}</span><span style={{ color, fontWeight: 700 }}>{Math.min(value, 100)}%</span></div><div style={{ width: "100%", height: 8, background: theme.bg, borderRadius: 4, overflow: "hidden" }}><div style={{ width: `${Math.min(value, 100)}%`, height: "100%", background: color, transition: "width 0.4s" }} /></div></div>;
-const ProgressBar = ({ label, value, total, color }) => <div style={{ marginBottom: 14 }}><div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}><span style={{ fontSize: 14, color: theme.text, fontWeight: 500 }}>{label}</span><span style={{ fontSize: 16, fontWeight: 700, color }}>{value} ({Math.round(value/total * 100)}%)</span></div><div style={{ width: "100%", height: 14, background: theme.bg, borderRadius: 7, overflow: "hidden" }}><div style={{ width: `${(value/total) * 100}%`, height: "100%", background: color, transition: "width 0.4s" }} /></div></div>;
-const TwoColumnRow = ({ left, right, gap = 20, mb = 40 }) => <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap, marginBottom: mb }}>{left}{right}</div>;
+const ProgressBar = ({ label, value, total, color }) => <div style={{ marginBottom: 16 }}><div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}><span style={{ fontSize: 14, color: theme.text, fontWeight: 500 }}>{label}</span><span style={{ fontSize: 16, fontWeight: 700, color }}>{value} ({Math.round(value/total * 100)}%)</span></div><div style={{ width: "100%", height: 12, background: theme.bg, borderRadius: 6, overflow: "hidden" }}><div style={{ width: `${(value/total) * 100}%`, height: "100%", background: color, transition: "width 0.4s" }} /></div></div>;
+const TwoCol = ({ left, right }) => <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 20, marginBottom: 40 }}>{left}{right}</div>;
 
 
 export default function StakeholderDashboard() {
@@ -192,210 +193,64 @@ export default function StakeholderDashboard() {
   }
 
   return (
-    <div style={{ background: theme.bg, minHeight: "100vh", padding: 24, fontFamily: "system-ui" }}>
+    <div style={{ background: theme.bg, minHeight: "100vh", padding: 32, fontFamily: "system-ui", lineHeight: 1.6 }}>
       <style>{`body{background:${theme.bg};color:${theme.text};}*{margin:0;padding:0;box-sizing:border-box;}`}</style>
       <div style={{ maxWidth: 1600, margin: "0 auto" }}>
-        <h1 style={{ fontSize: 36, fontWeight: 800, color: theme.text, marginBottom: 8 }}>
-          <span>Stakeholder</span> <span style={{ color: theme.accentL }}>Engagement</span>
-        </h1>
-        <p style={{ fontSize: 14, color: theme.muted, marginBottom: 32 }}>
-          {data.length === 0 ? "No stakeholders loaded" : `${data.length} stakeholders across ${Math.max(new Set(data.map(s => s.category)).size, 1)} categories`}
-        </p>
+        <h1 style={{ fontSize: 44, fontWeight: 800, color: theme.text, marginBottom: 8 }}>Stakeholder <span style={{ color: theme.accentL }}>Engagement</span></h1>
+        <p style={{ fontSize: 15, color: theme.muted, marginBottom: 40, fontWeight: 500 }}>{data.length === 0 ? "No data loaded" : `${data.length} stakeholders • ${Math.max(new Set(data.map(s => s.category)).size, 1)} categories`}</p>
 
         {data.length > 0 && (
-          <div style={{ marginBottom: 32 }}>
-            <div style={{ fontSize: 12, color: theme.muted, marginBottom: 12, fontWeight: 600 }}>🔍 FILTERS</div>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {[
-                { id: "all", label: `All (${data.length})` },
-                { id: "influencers", label: `High Influence (${data.filter(s => s.influence === "High" && s.interest === "High").length})` },
-                { id: "resistant", label: `Resistant (${data.filter(s => s.position === "Resistant").length})` },
-                { id: "priority", label: `Priority (${data.filter(s => s.priority === "High" && s.nextAction).length})` },
-              ].map(btn => (
-                <button key={btn.id} onClick={() => setFilter(btn.id)} style={{
-                  padding: "8px 16px", borderRadius: 8, border: `1px solid ${filter === btn.id ? theme.accentL : theme.border}`,
-                  background: filter === btn.id ? `${theme.accentL}22` : theme.card, color: filter === btn.id ? theme.accentL : theme.text,
-                  fontSize: 12, fontWeight: 600, cursor: "pointer", transition: "all 0.2s"
-                }}>
-                  {btn.label}
-                </button>
-              ))}
+          <div style={{ marginBottom: 40 }}>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              {[{ id: "all", label: `All (${data.length})` }, { id: "influencers", label: `High Influence (${data.filter(s => s.influence === "High" && s.interest === "High").length})` }, { id: "resistant", label: `Resistant (${data.filter(s => s.position === "Resistant").length})` }, { id: "priority", label: `Priority (${data.filter(s => s.priority === "High" && s.nextAction).length})` }].map(btn => <button key={btn.id} onClick={() => setFilter(btn.id)} style={{ padding: "10px 20px", borderRadius: 8, border: `2px solid ${filter === btn.id ? theme.accentL : theme.border}`, background: filter === btn.id ? `${theme.accentL}22` : "transparent", color: filter === btn.id ? theme.accentL : theme.text, fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all 0.2s", hover: { background: `${theme.accentL}11` } }}>{btn.label}</button>)}
             </div>
-            {filteredData.length < data.length && <div style={{ marginTop: 12, fontSize: 12, color: theme.muted, padding: 8, background: `${theme.accentL}11`, borderRadius: 6, borderLeft: `2px solid ${theme.accentL}` }}>📊 Showing {filteredData.length} of {data.length}</div>}
           </div>
         )}
 
-        {/* KEY METRICS (2x2 Grid) */}
         {data.length > 0 && (
           <>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 20, marginBottom: 40 }}>
-              <StatCard label="Total Stakeholders" value={stats.total} icon={Users} color={theme.accentL} />
-              <StatCard label="High Priority" value={stats.highPriority} icon={AlertTriangle} color={levelColors.High} />
-              <StatCard label="Supportive" value={stats.supportive} icon={CheckCircle2} color={positionColors.Supportive} />
-              <StatCard label="High Influence" value={stats.highInfluence} icon={Zap} color="#fbbf24" />
-            </div>
+            {/* PRIMARY METRICS - BIG & BOLD */}
+            <MetricGrid items={[<MetricCard key="total" value={stats.total} label="Total Stakeholders" icon={Users} color={theme.accentL} />, <MetricCard key="high" value={stats.highPriority} label="High Priority" icon={AlertTriangle} color={levelColors.High} />, <MetricCard key="supp" value={stats.supportive} label="Supportive" icon={CheckCircle2} color={positionColors.Supportive} />, <MetricCard key="inf" value={stats.highInfluence} label="High Influence" icon={Zap} color="#fbbf24" />]} cols={4} />
 
-            {/* KPI SUMMARY */}
-            <TwoColumnRow left={<Card style={{ padding: 28 }}><div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 24 }}>📊 Health Score & Coverage</div><GaugeChart value={kpiSummary.healthScore} label="Overall Health" color={kpiSummary.healthScore >= 70 ? "#34d399" : kpiSummary.healthScore >= 50 ? "#fbbf24" : "#f87171"} /><div style={{ marginTop: 20, paddingTop: 20, borderTop: `1px solid ${theme.border}`, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}><div><div style={{ fontSize: 11, color: theme.muted, marginBottom: 4, fontWeight: 600 }}>ENGAGEMENT</div><div style={{ fontSize: 18, fontWeight: 700, color: theme.accentL }}>{actionTracking.rate}%</div></div><div><div style={{ fontSize: 11, color: theme.muted, marginBottom: 4, fontWeight: 600 }}>COVERAGE</div><div style={{ fontSize: 18, fontWeight: 700, color: "#a78bfa" }}>{kpiSummary.coverage}%</div></div></div></Card>} right={<Card style={{ padding: 28 }}><div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 24 }}>💪 Engagement Index</div><div style={{ marginBottom: 20 }}><div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}><span style={{ fontSize: 14, color: theme.text }}>Avg Score</span><span style={{ fontSize: 28, fontWeight: 700, color: theme.accentL }}>{engagementScores.average}</span></div><div style={{ fontSize: 12, color: theme.muted, marginBottom: 12 }}>High engagement: {engagementScores.high} stakeholders</div></div><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, paddingTop: 12, borderTop: `1px solid ${theme.border}` }}><div><div style={{ fontSize: 11, color: theme.muted, marginBottom: 4, fontWeight: 600 }}>SUPPORTIVE</div><div style={{ fontSize: 18, fontWeight: 700, color: positionColors.Supportive }}>{satisfactionIndex.supportive}</div></div><div><div style={{ fontSize: 11, color: theme.muted, marginBottom: 4, fontWeight: 600 }}>ACTIVE</div><div style={{ fontSize: 18, fontWeight: 700, color: "#f59e0b" }}>{satisfactionIndex.active}</div></div></div></Card>} />
+            {/* HEALTH DASHBOARD */}
+            <TwoCol left={<Card><div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 28 }}>📊 Health Score</div><div style={{ fontSize: 54, fontWeight: 800, color: kpiSummary.healthScore >= 70 ? "#34d399" : kpiSummary.healthScore >= 50 ? "#fbbf24" : "#f87171", marginBottom: 12 }}>{kpiSummary.healthScore}</div><div style={{ fontSize: 13, color: theme.muted, marginBottom: 24 }}>Overall engagement quality</div><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, paddingTop: 24, borderTop: `1px solid ${theme.border}` }}><div><div style={{ fontSize: 11, color: theme.muted, marginBottom: 8, fontWeight: 600 }}>ENGAGEMENT RATE</div><div style={{ fontSize: 32, fontWeight: 700, color: theme.accentL }}>{actionTracking.rate}%</div></div><div><div style={{ fontSize: 11, color: theme.muted, marginBottom: 8, fontWeight: 600 }}>COVERAGE</div><div style={{ fontSize: 32, fontWeight: 700, color: "#a78bfa" }}>{kpiSummary.coverage}%</div></div></div></Card>} right={<Card><div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 28 }}>💪 Engagement Avg</div><div style={{ fontSize: 54, fontWeight: 800, color: theme.accentL, marginBottom: 12 }}>{engagementScores.average}</div><div style={{ fontSize: 13, color: theme.muted, marginBottom: 24 }}>{engagementScores.high} highly engaged stakeholders</div><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, paddingTop: 24, borderTop: `1px solid ${theme.border}` }}><div><div style={{ fontSize: 11, color: theme.muted, marginBottom: 8, fontWeight: 600 }}>SUPPORTIVE</div><div style={{ fontSize: 32, fontWeight: 700, color: positionColors.Supportive }}>{satisfactionIndex.supportive}</div></div><div><div style={{ fontSize: 11, color: theme.muted, marginBottom: 8, fontWeight: 600 }}>ACTIVE</div><div style={{ fontSize: 32, fontWeight: 700, color: "#f59e0b" }}>{satisfactionIndex.active}</div></div></div></Card>} />
 
-            {/* LARGE INFLUENCE/INTEREST MATRIX */}
-            <div style={{ marginBottom: 40 }}>
-              <Card style={{ padding: 32 }}>
-                <div style={{ fontSize: 18, fontWeight: 700, color: theme.text, marginBottom: 24 }}>📊 Influence / Interest Matrix</div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 20 }}>
-                  {["High", "Medium", "Low"].map(interest =>
-                    ["High", "Medium", "Low"].map(influence => {
-                      const key = `${influence}-${interest}`;
-                      const count = influenceInterestMatrix[key];
-                      return (
-                        <div key={key} style={{
-                          background: theme.bg, border: `1px solid ${theme.border}`, borderRadius: 12,
-                          padding: 24, textAlign: "center"
-                        }}>
-                          <div style={{ fontWeight: 700, color: theme.accentL, marginBottom: 8, fontSize: 32 }}>
-                            {count}
-                          </div>
-                          <div style={{ color: theme.muted, fontSize: 13, fontWeight: 500 }}>
-                            {influence} Inf<br/>{interest} Int
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-                <div style={{ fontSize: 13, color: theme.muted, paddingTop: 16, borderTop: `1px solid ${theme.border}`, textAlign: "center" }}>
-                  ↓ Interest Level / Influence Level →
-                </div>
-              </Card>
-            </div>
+            {/* INFLUENCE/INTEREST MATRIX */}
+            <Section title="📊 Influence / Interest Matrix">
+              <Card><div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 24 }}>{["High", "Medium", "Low"].map(int => ["High", "Medium", "Low"].map(inf => {
+                const key = `${inf}-${int}`;
+                const count = influenceInterestMatrix[key];
+                return <div key={key} style={{ background: theme.bg, borderRadius: 8, padding: 20, textAlign: "center", border: `1px solid ${theme.border}` }}><div style={{ fontSize: 36, fontWeight: 800, color: theme.accentL, marginBottom: 6 }}>{count}</div><div style={{ fontSize: 12, color: theme.muted, fontWeight: 500 }}>{inf} Inf<br/>{int} Int</div></div>;
+              }))}</div></Card>
+            </Section>
 
-            {/* STRATEGIC INSIGHTS ROW */}
-            <TwoColumnRow left={<Card style={{ padding: 28 }}><div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 24 }}>🎯 Stakeholder Positioning</div><div style={{ display: "flex", flexDirection: "column", gap: 0 }}>{positionBreakdown.map(item => <ProgressBar key={item.name} label={item.name} value={item.value} total={stats.total} color={item.color} />)}</div></Card>} right={<Card style={{ padding: 28 }}><div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 24 }}>📁 Categories</div><div style={{ display: "flex", flexDirection: "column", gap: 0 }}>{categoryBreakdown.map(item => <ProgressBar key={item.name} label={item.name} value={item.value} total={stats.total} color={colors[item.name] || theme.accentL} />)}</div></Card>} />
+            {/* STRATEGIC BREAKDOWN */}
+            <TwoCol left={<Card><div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 20 }}>🎯 Positioning</div>{positionBreakdown.map(item => <ProgressBar key={item.name} label={item.name} value={item.value} total={stats.total} color={item.color} />)}</Card>} right={<Card><div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 20 }}>📁 Categories</div>{categoryBreakdown.map(item => <ProgressBar key={item.name} label={item.name} value={item.value} total={stats.total} color={colors[item.name] || theme.accentL} />)}</Card>} />
 
-            {/* KEY INSIGHTS ROW */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 20, marginBottom: 40 }}>
-              <Card style={{ padding: 28 }}>
-                <div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 24 }}>⚠️ Risk Assessment</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                  <div>
-                    <div style={{ fontSize: 13, color: theme.muted, marginBottom: 6, fontWeight: 600 }}>HIGH INFLUENCE, LOW INTEREST</div>
-                    <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-                      <div style={{ fontSize: 32, fontWeight: 700, color: "#f87171" }}>{risks.length}</div>
-                      <div style={{ color: theme.muted, fontSize: 13 }}>stakeholders</div>
-                    </div>
-                    <div style={{ fontSize: 12, color: theme.muted, marginTop: 8 }}>Powerful but not engaged.</div>
-                  </div>
-                  {risks.length > 0 && <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: 12, fontSize: 12 }}>{risks.slice(0, 2).map(s => <div key={s.id} style={{ color: theme.text, marginBottom: 4 }}>• {s.name}</div>)}{risks.length > 2 && <div style={{ color: theme.muted }}>+ {risks.length - 2} more</div>}</div>}
-                </div>
-              </Card>
+            {/* RISK & ALLIES */}
+            <TwoCol left={<Card><div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 20 }}>⚠️ Risks</div><div style={{ fontSize: 40, fontWeight: 800, color: "#f87171", marginBottom: 8 }}>{risks.length}</div><div style={{ fontSize: 13, color: theme.muted, marginBottom: 16 }}>High influence, low interest</div>{risks.length > 0 && <div style={{ paddingTop: 16, borderTop: `1px solid ${theme.border}`, fontSize: 12 }}>{risks.slice(0, 3).map(s => <div key={s.id} style={{ color: theme.text, marginBottom: 6 }}>• {s.name}</div>)}</div>}</Card>} right={<Card><div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 20 }}>🤝 Allies</div><div style={{ fontSize: 40, fontWeight: 800, color: "#34d399", marginBottom: 8 }}>{allies.length}</div><div style={{ fontSize: 13, color: theme.muted, marginBottom: 16 }}>Medium influence, high interest</div>{allies.length > 0 && <div style={{ paddingTop: 16, borderTop: `1px solid ${theme.border}`, fontSize: 12 }}>{allies.slice(0, 3).map(s => <div key={s.id} style={{ color: theme.text, marginBottom: 6 }}>• {s.name}</div>)}</div>}</Card>} />
 
-              <Card style={{ padding: 28 }}>
-                <div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 24 }}>🤝 Key Allies</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                  <div>
-                    <div style={{ fontSize: 13, color: theme.muted, marginBottom: 6, fontWeight: 600 }}>MEDIUM INFLUENCE, HIGH INTEREST</div>
-                    <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-                      <div style={{ fontSize: 32, fontWeight: 700, color: "#34d399" }}>{allies.length}</div>
-                      <div style={{ color: theme.muted, fontSize: 13 }}>stakeholders</div>
-                    </div>
-                    <div style={{ fontSize: 12, color: theme.muted, marginTop: 8 }}>Engaged advocates.</div>
-                  </div>
-                  {allies.length > 0 && <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: 12, fontSize: 12 }}>{allies.slice(0, 2).map(s => <div key={s.id} style={{ color: theme.text, marginBottom: 4 }}>• {s.name}</div>)}{allies.length > 2 && <div style={{ color: theme.muted }}>+ {allies.length - 2} more</div>}</div>}
-                </div>
-              </Card>
-            </div>
+            {/* TYPE ANALYSIS */}
+            <TwoCol left={<Card><div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 20 }}>👥 People vs Institutions</div><ProgressBar label="Individuals" value={peopleVsInstitutions.people} total={stats.total} color="#a78bfa" /><ProgressBar label="Institutions" value={peopleVsInstitutions.institutions} total={stats.total} color="#60a5fa" /></Card>} right={<Card><div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 20 }}>📋 Policy vs Implementation</div><ProgressBar label="Policy Leaders" value={policyVsImplementation.policy} total={stats.total} color="#f59e0b" /><ProgressBar label="Implementers" value={policyVsImplementation.implementation} total={stats.total} color="#8b5cf6" /></Card>} />
 
-            {/* ACTION & SATISFACTION TRACKING */}
-            <TwoColumnRow left={<Card style={{ padding: 28 }}><div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 24 }}>✏️ Action Priority Tracker</div><div style={{ marginBottom: 16 }}><div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}><span style={{ color: theme.text, fontSize: 14 }}>Actions with Due Dates</span><span style={{ fontSize: 24, fontWeight: 700, color: theme.accentL }}>{actionTracking.total}</span></div><div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}><div style={{ padding: 10, background: theme.bg, borderRadius: 6, borderLeft: `2px solid ${levelColors.High}` }}><div style={{ fontSize: 10, color: theme.muted, marginBottom: 4 }}>HIGH</div><div style={{ fontSize: 16, fontWeight: 700, color: levelColors.High }}>{actionTracking.high}</div></div><div style={{ padding: 10, background: theme.bg, borderRadius: 6, borderLeft: `2px solid ${levelColors.Medium}` }}><div style={{ fontSize: 10, color: theme.muted, marginBottom: 4 }}>MEDIUM</div><div style={{ fontSize: 16, fontWeight: 700, color: levelColors.Medium }}>{actionTracking.medium}</div></div><div style={{ padding: 10, background: theme.bg, borderRadius: 6, borderLeft: `2px solid ${levelColors.Low}` }}><div style={{ fontSize: 10, color: theme.muted, marginBottom: 4 }}>LOW</div><div style={{ fontSize: 16, fontWeight: 700, color: levelColors.Low }}>{actionTracking.low}</div></div></div></div></Card>} right={<Card style={{ padding: 28 }}><div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 24 }}>😊 Satisfaction Index</div><GaugeChart value={satisfactionIndex.score} label="Overall Score" color={satisfactionIndex.score >= 70 ? "#34d399" : satisfactionIndex.score >= 50 ? "#fbbf24" : "#f87171"} /><div style={{ marginTop: 20, paddingTop: 20, borderTop: `1px solid ${theme.border}`, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}><div><div style={{ fontSize: 11, color: theme.muted, marginBottom: 4, fontWeight: 600 }}>SUPPORTIVE</div><div style={{ fontSize: 16, fontWeight: 700, color: positionColors.Supportive }}>{satisfactionIndex.supportive}</div></div><div><div style={{ fontSize: 11, color: theme.muted, marginBottom: 4, fontWeight: 600 }}>ENGAGED</div><div style={{ fontSize: 16, fontWeight: 700, color: "#a78bfa" }}>{satisfactionIndex.engaged}</div></div></div></Card>} />
-
-            {/* STAKEHOLDER TYPE ANALYSIS */}
-            <TwoColumnRow left={<Card style={{ padding: 28 }}><div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 24 }}>👥 People vs Institutions</div><ProgressBar label="Individuals" value={peopleVsInstitutions.people} total={stats.total} color="#a78bfa" /><ProgressBar label="Institutions" value={peopleVsInstitutions.institutions} total={stats.total} color="#60a5fa" /></Card>} right={<Card style={{ padding: 28 }}><div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 24 }}>📋 Policy vs Implementation</div><ProgressBar label="Policy Leaders" value={policyVsImplementation.policy} total={stats.total} color="#f59e0b" /><ProgressBar label="Implementers" value={policyVsImplementation.implementation} total={stats.total} color="#8b5cf6" /></Card>} />
-
-            {/* INTERACTIONS ROW */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 20, marginBottom: 40 }}>
-              {/* Recent Interactions */}
-              <Card style={{ padding: 28 }}>
-                <div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 20 }}>📅 Recent Interactions</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  {recentInteractions.length === 0 ? (
-                    <div style={{ color: theme.muted, textAlign: "center", padding: 20, fontSize: 13 }}>No recent interactions</div>
-                  ) : (
-                    recentInteractions.map(s => (
-                      <div key={s.id} style={{ padding: 14, background: theme.bg, borderRadius: 8, border: `1px solid ${theme.border}` }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                          <span style={{ fontWeight: 600, color: theme.text, fontSize: 13 }}>{s.name}</span>
-                          <Badge label={s.lastInteraction} />
-                        </div>
-                        <div style={{ fontSize: 12, color: theme.muted }}>{s.organization}</div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </Card>
-
-              {/* Upcoming Actions */}
-              <Card style={{ padding: 28 }}>
-                <div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 20 }}>✅ Upcoming Actions</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  {upcomingActions.length === 0 ? (
-                    <div style={{ color: theme.muted, textAlign: "center", padding: 20, fontSize: 13 }}>No upcoming actions</div>
-                  ) : (
-                    upcomingActions.map(s => (
-                      <div key={s.id} style={{ padding: 14, background: theme.bg, borderRadius: 8, border: `1px solid ${theme.border}`, borderLeft: `3px solid ${levelColors[s.priority] || theme.accentL}` }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                          <span style={{ fontWeight: 600, color: theme.text, fontSize: 13 }}>{s.name}</span>
-                          <Badge label={s.priority} color={levelColors[s.priority]} />
-                        </div>
-                        <div style={{ fontSize: 12, color: theme.muted, lineHeight: 1.5 }}>{s.nextAction}</div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </Card>
-            </div>
-
-            {/* STAKEHOLDER PROFILES */}
-            <div style={{ marginBottom: 40 }}>
-              <h2 style={{ fontSize: 18, fontWeight: 700, color: theme.text, marginBottom: 20 }}>👥 Individual Stakeholder Profiles</h2>
+            {/* TOP STAKEHOLDERS - Simplified */}
+            <Section title="👥 Top Stakeholders">
               <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 20 }}>
-                {filteredData.map((stakeholder, idx) => (
-                  <Card key={stakeholder.id} style={{ padding: 20 }}>
-                    <div style={{ marginBottom: 16 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-                        <div>
-                          <h3 style={{ fontSize: 15, fontWeight: 700, color: theme.text, marginBottom: 2 }}>{stakeholder.name}</h3>
-                          <div style={{ fontSize: 12, color: theme.muted }}>{stakeholder.organization}</div>
-                        </div>
-                        <Badge label={stakeholder.category} color={colors[stakeholder.category] || theme.accentL} />
-                      </div>
-                      <div style={{ fontSize: 12, color: theme.muted }}>{stakeholder.role}</div>
+                {filteredData.slice(0, 6).map(s => (
+                  <Card key={s.id} style={{ padding: 20 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: 14 }}>
+                      <div><h3 style={{ fontSize: 15, fontWeight: 700, color: theme.text, marginBottom: 4 }}>{s.name}</h3><div style={{ fontSize: 12, color: theme.muted }}>{s.organization}</div></div>
+                      <Badge label={s.category} color={colors[s.category] || theme.accentL} />
                     </div>
-
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16, paddingBottom: 16, borderBottom: `1px solid ${theme.border}` }}>
-                      <div><div style={{ fontSize: 11, color: theme.muted, marginBottom: 6, fontWeight: 600 }}>INFLUENCE</div><Badge label={stakeholder.influence} color={levelColors[stakeholder.influence]} /></div>
-                      <div><div style={{ fontSize: 11, color: theme.muted, marginBottom: 6, fontWeight: 600 }}>INTEREST</div><Badge label={stakeholder.interest} color={levelColors[stakeholder.interest]} /></div>
-                      <div><div style={{ fontSize: 11, color: theme.muted, marginBottom: 6, fontWeight: 600 }}>POSITION</div><Badge label={stakeholder.position} color={positionColors[stakeholder.position]} /></div>
-                      <div><div style={{ fontSize: 11, color: theme.muted, marginBottom: 6, fontWeight: 600 }}>PRIORITY</div><Badge label={stakeholder.priority} color={levelColors[stakeholder.priority]} /></div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12, paddingBottom: 12, borderBottom: `1px solid ${theme.border}` }}>
+                      <div><div style={{ fontSize: 10, color: theme.muted, marginBottom: 4, fontWeight: 600 }}>INFLUENCE</div><Badge label={s.influence} color={levelColors[s.influence]} /></div>
+                      <div><div style={{ fontSize: 10, color: theme.muted, marginBottom: 4, fontWeight: 600 }}>INTEREST</div><Badge label={s.interest} color={levelColors[s.interest]} /></div>
                     </div>
-
-                    <GaugeChart value={[60, 75, 55, 80, 70][idx % 5]} label="Engagement" color={theme.accentL} />
-
-                    {stakeholder.nextAction && (
-                      <div style={{ padding: 12, background: theme.bg, borderRadius: 8, borderLeft: `2px solid ${levelColors[stakeholder.priority]}`, fontSize: 12, color: theme.muted, marginTop: 12 }}>
-                        <div style={{ fontWeight: 600, color: theme.text, marginBottom: 4 }}>Next Action</div>
-                        {stakeholder.nextAction}
-                      </div>
-                    )}
-
-                    {stakeholder.lastInteraction && (
-                      <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${theme.border}`, fontSize: 11, color: theme.muted }}>
-                        Last seen: <strong>{stakeholder.lastInteraction}</strong>
-                      </div>
-                    )}
+                    {s.nextAction && <div style={{ fontSize: 12, color: theme.muted, padding: 10, background: theme.bg, borderRadius: 6, borderLeft: `3px solid ${levelColors[s.priority]}` }}>📌 {s.nextAction}</div>}
                   </Card>
                 ))}
               </div>
-            </div>
+            </Section>
           </>
         )}
       </div>
