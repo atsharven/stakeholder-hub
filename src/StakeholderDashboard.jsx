@@ -80,12 +80,15 @@ export default function StakeholderDashboard() {
     if (filter === "priority") return data.filter(s => s.priority === "High" && s.nextAction);
     return data;
   }, [data, filter]);
-  const stats = useMemo(() => ({
-    total: filteredData.length,
-    supportive: filteredData.filter(s => s.position === "Supportive").length,
-    highPriority: filteredData.filter(s => s.priority === "High").length,
-    highInfluence: filteredData.filter(s => s.influence === "High").length,
-  }), [filteredData]);
+  const stats = useMemo(() => {
+    const counts = filteredData.reduce((acc, s) => {
+      acc.supportive += s.position === "Supportive" ? 1 : 0;
+      acc.highPriority += s.priority === "High" ? 1 : 0;
+      acc.highInfluence += s.influence === "High" ? 1 : 0;
+      return acc;
+    }, { supportive: 0, highPriority: 0, highInfluence: 0 });
+    return { total: filteredData.length, ...counts };
+  }, [filteredData]);
 
   const categoryBreakdown = useMemo(() => 
     Object.entries(filteredData.reduce((acc, s) => {
@@ -131,17 +134,17 @@ export default function StakeholderDashboard() {
   }, [filteredData]);
 
   const engagementScores = useMemo(() => {
-    let totalScore = 0, highCount = 0;
-    filteredData.forEach(s => {
+    const result = filteredData.reduce((acc, s) => {
       const influenceScore = s.influence === "High" ? 40 : s.influence === "Medium" ? 25 : 10;
       const interestScore = s.interest === "High" ? 30 : s.interest === "Medium" ? 15 : 5;
       const positionScore = s.position === "Supportive" ? 25 : s.position === "Neutral" ? 12 : 0;
       const score = Math.min(100, influenceScore + interestScore + positionScore);
-      totalScore += score;
-      if (score >= 75) highCount++;
-    });
-    const avg = filteredData.length > 0 ? Math.round(totalScore / filteredData.length) : 0;
-    return { average: avg, high: highCount };
+      acc.totalScore += score;
+      if (score >= 75) acc.highCount++;
+      return acc;
+    }, { totalScore: 0, highCount: 0 });
+    const avg = filteredData.length > 0 ? Math.round(result.totalScore / filteredData.length) : 0;
+    return { average: avg, high: result.highCount };
   }, [filteredData]);
 
   const actionTracking = useMemo(() => {
@@ -265,7 +268,7 @@ export default function StakeholderDashboard() {
                 </div>
               )}
             </Card>
-            <button onClick={() => handleSearch("")} style={buttonStyle()}>← Back to Dashboard</button>
+            <button onClick={() => handleSearch("")} style={{ ...buttonStyle(), marginTop: 20 }}>← Back to Dashboard</button>
           </Section>
         )}
 
