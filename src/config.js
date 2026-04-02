@@ -7,5 +7,7 @@ export const COLUMN_NAMES = {
   id: "Stakeholder ID", entityType: "Entity Type", name: "Stakeholder Name", category: "Category", 
   organization: "Organization", role: "Role in Ecosystem", influence: "Influence", interest: "Interest",
   position: "Position", strategy: "Engagement Strategy", owner: "Owner", lastInteraction: "Last Interaction Date",
-  nextAction: "Next Action", priority: "Priority", notes: "Notes"
+  nextAction: "Next Action", priority: "Priority", notes: "Notes",
+  sentiment: "Sentiment", relationshipWithProject: "Relationship with Project", 
+  contactPerson: "Contact Person", email: "Email", phone: "Phone"
 };

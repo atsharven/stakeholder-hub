@@ -37,6 +37,11 @@ const mapRow = (row) => ({
   nextAction: row[COLUMN_NAMES.nextAction] || '',
   priority: row[COLUMN_NAMES.priority] || 'Medium',
   notes: row[COLUMN_NAMES.notes] || '',
+  sentiment: row[COLUMN_NAMES.sentiment] || 'Neutral',
+  relationshipWithProject: row[COLUMN_NAMES.relationshipWithProject] || '',
+  contactPerson: row[COLUMN_NAMES.contactPerson] || '',
+  email: row[COLUMN_NAMES.email] || '',
+  phone: row[COLUMN_NAMES.phone] || '',
 });
 
 export const fetchStakeholders = async () => {

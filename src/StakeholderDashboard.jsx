@@ -6,6 +6,8 @@ const theme = { bg: "#0d1117", card: "#161b22", border: "#21262d", text: "#e2e8f
 const colors = { Government: "#818cf8", Political: "#a78bfa", "NGO/Civil Society": "#34d399", Corporate: "#60a5fa", Academic: "#f59e0b", Media: "#fb7185", Community: "#f97316", International: "#2dd4bf" };
 const levelColors = { High: "#f87171", Medium: "#fbbf24", Low: "#34d399" };
 const positionColors = { Supportive: "#34d399", Neutral: "#94a3b8", Resistant: "#f87171" };
+const sentimentColors = { Positive: "#34d399", Neutral: "#94a3b8", Negative: "#f87171" };
+const relationshipColors = { Involved: "#818cf8", Affected: "#fbbf24", Interested: "#34d399" };
 
 // Reusable styles
 const buttonStyle = (active = false) => ({ padding: "10px 20px", borderRadius: 8, border: `2px solid ${active ? theme.accentL : theme.border}`, background: active ? `${theme.accentL}22` : "transparent", color: active ? theme.accentL : theme.text, fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all 0.2s" });
@@ -26,6 +28,7 @@ export default function StakeholderDashboard() {
   const [data, setData] = useState([]);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState("all");
+  const [sentimentFilter, setSentimentFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -74,12 +77,15 @@ export default function StakeholderDashboard() {
   };
 
   const filteredData = useMemo(() => {
-    if (filter === "all") return data;
-    if (filter === "influencers") return data.filter(s => s.influence === "High" && s.interest === "High");
-    if (filter === "resistant") return data.filter(s => s.position === "Resistant");
-    if (filter === "priority") return data.filter(s => s.priority === "High" && s.nextAction);
-    return data;
-  }, [data, filter]);
+    let result = data;
+    if (filter === "all") result = data;
+    else if (filter === "influencers") result = data.filter(s => s.influence === "High" && s.interest === "High");
+    else if (filter === "resistant") result = data.filter(s => s.position === "Resistant");
+    else if (filter === "priority") result = data.filter(s => s.priority === "High" && s.nextAction);
+    
+    if (sentimentFilter !== "all") result = result.filter(s => s.sentiment === sentimentFilter);
+    return result;
+  }, [data, filter, sentimentFilter]);
   const stats = useMemo(() => {
     const counts = filteredData.reduce((acc, s) => {
       acc.supportive += s.position === "Supportive" ? 1 : 0;
@@ -216,8 +222,16 @@ export default function StakeholderDashboard() {
                     <Badge label={searchResults.interest} color={levelColors[searchResults.interest]} />
                   </div>
                   <div>
+                    <div style={labelStyle}>SENTIMENT</div>
+                    <Badge label={searchResults.sentiment || "Neutral"} color={sentimentColors[searchResults.sentiment] || sentimentColors.Neutral} />
+                  </div>
+                  <div>
                     <div style={labelStyle}>POSITION</div>
                     <Badge label={searchResults.position} color={positionColors[searchResults.position]} />
+                  </div>
+                  <div>
+                    <div style={labelStyle}>RELATIONSHIP</div>
+                    <Badge label={searchResults.relationshipWithProject || "—"} color={relationshipColors[searchResults.relationshipWithProject] || theme.muted} />
                   </div>
                   <div>
                     <div style={labelStyle}>PRIORITY</div>
@@ -246,6 +260,16 @@ export default function StakeholderDashboard() {
                 </div>
               </Card>
             </div>
+            {(searchResults.contactPerson || searchResults.email || searchResults.phone) && (
+              <Card style={{ padding: 20, marginBottom: 20 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: theme.text, marginBottom: 16 }}>📱 Contact Information</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                  {searchResults.contactPerson && <div><div style={labelStyle}>CONTACT PERSON</div><div style={{ fontSize: 14, color: theme.text }}>{searchResults.contactPerson}</div></div>}
+                  {searchResults.email && <div><div style={labelStyle}>EMAIL</div><a href={`mailto:${searchResults.email}`} style={{ fontSize: 14, color: theme.accentL, textDecoration: "none" }}>{searchResults.email}</a></div>}
+                  {searchResults.phone && <div><div style={labelStyle}>PHONE</div><a href={`tel:${searchResults.phone}`} style={{ fontSize: 14, color: theme.accentL, textDecoration: "none" }}>{searchResults.phone}</a></div>}
+                </div>
+              </Card>
+            )}
             <Card style={{ padding: 20 }}>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 20 }}>
                 <div>
@@ -274,8 +298,17 @@ export default function StakeholderDashboard() {
 
         {!searchResults && data.length > 0 && (
           <div style={{ marginBottom: 40 }}>
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-              {[{ id: "all", label: `All (${data.length})` }, { id: "influencers", label: `High Influence (${data.filter(s => s.influence === "High" && s.interest === "High").length})` }, { id: "resistant", label: `Resistant (${data.filter(s => s.position === "Resistant").length})` }, { id: "priority", label: `Priority (${data.filter(s => s.priority === "High" && s.nextAction).length})` }].map(btn => <button key={btn.id} onClick={() => setFilter(btn.id)} style={buttonStyle(filter === btn.id)}>{btn.label}</button>)}
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: theme.muted, marginBottom: 8 }}>CATEGORY FILTER</div>
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                {[{ id: "all", label: `All (${data.length})` }, { id: "influencers", label: `High Influence (${data.filter(s => s.influence === "High" && s.interest === "High").length})` }, { id: "resistant", label: `Resistant (${data.filter(s => s.position === "Resistant").length})` }, { id: "priority", label: `Priority (${data.filter(s => s.priority === "High" && s.nextAction).length})` }].map(btn => <button key={btn.id} onClick={() => setFilter(btn.id)} style={buttonStyle(filter === btn.id)}>{btn.label}</button>)}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: theme.muted, marginBottom: 8 }}>SENTIMENT FILTER</div>
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                {[{ id: "all", label: `All` }, { id: "Positive", label: `🟢 Positive (${data.filter(s => s.sentiment === "Positive").length})` }, { id: "Neutral", label: `🟡 Neutral (${data.filter(s => s.sentiment === "Neutral").length})` }, { id: "Negative", label: `🔴 Negative (${data.filter(s => s.sentiment === "Negative").length})` }].map(btn => <button key={btn.id} onClick={() => setSentimentFilter(btn.id)} style={buttonStyle(sentimentFilter === btn.id)}>{btn.label}</button>)}
+              </div>
             </div>
           </div>
         )}
@@ -347,14 +380,15 @@ export default function StakeholderDashboard() {
             <Section title="👥 Top Stakeholders">
               <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 20 }}>
                 {filteredData.slice(0, 6).map(s => (
-                  <Card key={s.id} style={{ padding: 20 }}>
+                  <Card key={s.id} style={{ padding: 20, cursor: "pointer", transition: "all 0.2s", boxShadow: `0 0 8px ${theme.border}22` }} onClick={() => handleSearch(s.name)}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: 14 }}>
                       <div><h3 style={{ fontSize: 15, fontWeight: 700, color: theme.text, marginBottom: 4 }}>{s.name}</h3><div style={{ fontSize: 12, color: theme.muted }}>{s.organization}</div></div>
-                      <Badge label={s.category} color={colors[s.category] || theme.accentL} />
+                      <div style={{ display: "flex", gap: 6, flexDirection: "column", alignItems: "flex-end" }}><Badge label={s.category} color={colors[s.category] || theme.accentL} /><Badge label={s.sentiment || "Neutral"} color={sentimentColors[s.sentiment] || sentimentColors.Neutral} style={{ fontSize: 10 }} /></div>
                     </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12, paddingBottom: 12, borderBottom: `1px solid ${theme.border}` }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 12, paddingBottom: 12, borderBottom: `1px solid ${theme.border}` }}>
                       <div><div style={{ fontSize: 10, color: theme.muted, marginBottom: 4, fontWeight: 600 }}>INFLUENCE</div><Badge label={s.influence} color={levelColors[s.influence]} /></div>
                       <div><div style={{ fontSize: 10, color: theme.muted, marginBottom: 4, fontWeight: 600 }}>INTEREST</div><Badge label={s.interest} color={levelColors[s.interest]} /></div>
+                      <div><div style={{ fontSize: 10, color: theme.muted, marginBottom: 4, fontWeight: 600 }}>POSITION</div><Badge label={s.position} color={positionColors[s.position]} /></div>
                     </div>
                     {s.nextAction && <div style={{ fontSize: 12, color: theme.muted, padding: 10, background: theme.bg, borderRadius: 6, borderLeft: `3px solid ${levelColors[s.priority]}` }}>📌 {s.nextAction}</div>}
                   </Card>
