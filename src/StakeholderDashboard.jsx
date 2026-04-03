@@ -1,6 +1,6 @@
 import { fetchStakeholders } from './googleSheetsClient'
 import { useState, useMemo, useEffect } from "react";
-import { Users, AlertTriangle, CheckCircle2, Zap, Moon, Sun } from "lucide-react";
+import { Users, AlertTriangle, CheckCircle2, Zap, Moon, Sun, ArrowUpDown } from "lucide-react";
 import { useTheme, categoryColors, levelColors, positionColors, sentimentColors, relationshipColors } from './theme'
 
 export default function StakeholderDashboard() {
@@ -13,38 +13,109 @@ export default function StakeholderDashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [viewMode, setViewMode] = useState("dashboard"); // 'dashboard' or 'allStakeholders'
+  const [sortBy, setSortBy] = useState("name");
+  const [sortDir, setSortDir] = useState("asc");
   
-  // Style helpers
-  const buttonStyle = (active = false) => ({ padding: "10px 16px", borderRadius: 8, border: `2px solid ${active ? theme.primary : theme.border}`, background: active ? `${theme.primary}15` : "transparent", color: active ? theme.primary : theme.text, fontSize: 13, fontWeight: 500, cursor: "pointer", transition: "all 0.2s ease", "&:hover": { background: active ? `${theme.primary}20` : theme.hover, borderColor: theme.primary } });
+  // Reusable style objects to minimize code
+  const buttonStyle = (active = false) => ({
+    padding: "10px 16px",
+    borderRadius: 8,
+    border: `2px solid ${active ? theme.primary : theme.border}`,
+    background: active ? `${theme.primary}15` : "transparent",
+    color: active ? theme.primary : theme.text,
+    fontSize: 13,
+    fontWeight: 500,
+    cursor: "pointer",
+    transition: "all 0.2s ease",
+  });
   const labelStyle = { fontSize: 11, color: theme.textMuted, fontWeight: 600, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.5px" };
   const dividerStyle = { paddingTop: 20, borderTop: `1px solid ${theme.divider}` };
   
-  // Get color functions
+  // Color getters
   const getCatColor = (cat) => categoryColors[cat]?.[isDark ? 'dark' : 'light'] || theme.primary;
   const getLvlColor = (lvl) => levelColors[lvl]?.[isDark ? 'dark' : 'light'] || theme.warning;
   const getPosColor = (pos) => positionColors[pos]?.[isDark ? 'dark' : 'light'] || theme.text;
   const getSentColor = (sent) => sentimentColors[sent]?.[isDark ? 'dark' : 'light'] || theme.textMuted;
   const getRelColor = (rel) => relationshipColors[rel]?.[isDark ? 'dark' : 'light'] || theme.textMuted;
   
-  // UI Components with enhanced hover effects
-  const Card = ({ children, style = {}, hoverable = false }) => (
-    <div style={{ 
-      background: theme.card, 
-      border: `1px solid ${theme.border}`, 
-      borderRadius: 12, 
-      padding: 20, 
-      transition: "all 0.3s cubic-bezier(0.2, 0, 0.2, 1)",
-      ...(hoverable && { cursor: "pointer" }),
-      ...(hoverable && { "&:hover": { background: theme.cardHover, borderColor: theme.divider, boxShadow: isDark ? "0 2px 8px rgba(0,0,0,0.3)" : "0 2px 8px rgba(0,0,0,0.1)" } }),
-      ...style
-    }}>{children}</div>
+  // Reusable UI components
+  const Card = ({ children, style = {}, hoverable = false, onClick = null }) => (
+    <div
+      style={{
+        background: theme.card,
+        border: `1px solid ${theme.border}`,
+        borderRadius: 12,
+        padding: 20,
+        transition: "all 0.3s cubic-bezier(0.2, 0, 0.2, 1)",
+        ...(hoverable && { cursor: "pointer" }),
+        ...style
+      }}
+      onClick={onClick}
+      onMouseEnter={hoverable ? (e) => {
+        e.currentTarget.style.background = theme.cardHover;
+        e.currentTarget.style.borderColor = theme.divider;
+        e.currentTarget.style.boxShadow = isDark ? "0 2px 8px rgba(0,0,0,0.3)" : "0 2px 8px rgba(0,0,0,0.1)";
+      } : null}
+      onMouseLeave={hoverable ? (e) => {
+        e.currentTarget.style.background = theme.card;
+        e.currentTarget.style.borderColor = theme.border;
+        e.currentTarget.style.boxShadow = "none";
+      } : null}
+    >
+      {children}
+    </div>
   );
-  
-  const Section = ({ title, children }) => <div style={{ marginBottom: 40 }}><div style={{ fontSize: 18, fontWeight: 700, color: theme.text, marginBottom: 24 }}>{title}</div>{children}</div>;
-  const Badge = ({ label, color }) => <span style={{ display: "inline-block", padding: "4px 12px", borderRadius: 6, fontSize: 11, fontWeight: 600, background: `${color}22`, color, border: `1px solid ${color}44`, transition: "all 0.2s ease" }}>{label}</span>;
-  const ProgressBar = ({ label, value, total, color }) => <div style={{ marginBottom: 16 }}><div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, fontSize: 13 }}><span style={{ color: theme.text, fontWeight: 500 }}>{label}</span><span style={{ fontWeight: 700, color }}>{value} ({Math.round(value/total * 100)}%)</span></div><div style={{ width: "100%", height: 12, background: theme.surface, borderRadius: 6, overflow: "hidden" }}><div style={{ width: `${(value/total) * 100}%`, height: "100%", background: color, transition: "width 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)" }} /></div></div>;
-  const MetricCard = ({ value, label, color, icon: Icon }) => <Card style={{ textAlign: "center", padding: 16, transition: "all 0.3s ease" }}><Icon size={24} color={color} style={{ marginBottom: 8, opacity: 0.8 }} /><div style={{ fontSize: 44, fontWeight: 800, color, marginBottom: 4 }}>{value}</div><div style={{ fontSize: 12, color: theme.textMuted, fontWeight: 500 }}>{label}</div></Card>;
-  const ResponsiveLayout = ({ children }) => <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 20, marginBottom: 40 }}>{children}</div>;
+
+  const Section = ({ title, children }) => (
+    <div style={{ marginBottom: 40 }}>
+      <div style={{ fontSize: 18, fontWeight: 700, color: theme.text, marginBottom: 24 }}>{title}</div>
+      {children}
+    </div>
+  );
+
+  const Badge = ({ label, color }) => (
+    <span style={{
+      display: "inline-block",
+      padding: "4px 12px",
+      borderRadius: 6,
+      fontSize: 11,
+      fontWeight: 600,
+      background: `${color}22`,
+      color,
+      border: `1px solid ${color}44`,
+      whiteSpace: "nowrap"
+    }}>
+      {label}
+    </span>
+  );
+
+  const ProgressBar = ({ label, value, total, color }) => (
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, fontSize: 13 }}>
+        <span style={{ color: theme.text, fontWeight: 500 }}>{label}</span>
+        <span style={{ fontWeight: 700, color }}>{value} ({Math.round(value / total * 100)}%)</span>
+      </div>
+      <div style={{ width: "100%", height: 12, background: theme.surface, borderRadius: 6, overflow: "hidden" }}>
+        <div style={{ width: `${(value / total) * 100}%`, height: "100%", background: color, transition: "width 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)" }} />
+      </div>
+    </div>
+  );
+
+  const MetricCard = ({ value, label, color, icon: Icon }) => (
+    <Card style={{ textAlign: "center", padding: 16 }}>
+      <Icon size={24} color={color} style={{ marginBottom: 8, opacity: 0.8 }} />
+      <div style={{ fontSize: 44, fontWeight: 800, color, marginBottom: 4 }}>{value}</div>
+      <div style={{ fontSize: 12, color: theme.textMuted, fontWeight: 500 }}>{label}</div>
+    </Card>
+  );
+
+  const ResponsiveLayout = ({ children }) => (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 20, marginBottom: 40 }}>
+      {children}
+    </div>
+  );
+
   const ThemeToggle = () => (
     <button
       onClick={toggleTheme}
@@ -62,8 +133,14 @@ export default function StakeholderDashboard() {
         fontSize: "13px",
         fontWeight: 500,
       }}
-      onMouseEnter={(e) => { e.target.style.background = theme.cardHover; e.target.style.borderColor = theme.divider; }}
-      onMouseLeave={(e) => { e.target.style.background = theme.surface; e.target.style.borderColor = theme.border; }}
+      onMouseEnter={(e) => {
+        e.target.style.background = theme.cardHover;
+        e.target.style.borderColor = theme.divider;
+      }}
+      onMouseLeave={(e) => {
+        e.target.style.background = theme.surface;
+        e.target.style.borderColor = theme.border;
+      }}
     >
       {isDark ? <Sun size={16} /> : <Moon size={16} />}
       {isDark ? "Light" : "Dark"}
@@ -91,10 +168,6 @@ export default function StakeholderDashboard() {
   const handleRefresh = async () => {
     setRefreshing(true);
     await loadData();
-    if (searchQuery.trim() !== "") {
-      const result = data.find(s => s.name?.toLowerCase().includes(searchQuery.toLowerCase()) || s.id?.toLowerCase().includes(searchQuery.toLowerCase()));
-      setSearchResults(result || null);
-    }
   };
 
   const handleSearch = (query) => {
@@ -111,6 +184,15 @@ export default function StakeholderDashboard() {
     if (e.key === "Escape") handleSearch("");
   };
 
+  const toggleSort = (column) => {
+    if (sortBy === column) {
+      setSortDir(sortDir === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy(column);
+      setSortDir("asc");
+    }
+  };
+
   const filteredData = useMemo(() => {
     let result = data;
     if (filter === "all") result = data;
@@ -121,41 +203,45 @@ export default function StakeholderDashboard() {
     return result;
   }, [data, filter, sentimentFilter]);
 
+  const sortedData = useMemo(() => {
+    const sorted = [...filteredData].sort((a, b) => {
+      let aVal, bVal;
+      switch (sortBy) {
+        case "name": aVal = a.name?.toLowerCase(); bVal = b.name?.toLowerCase(); break;
+        case "org": aVal = a.organization?.toLowerCase(); bVal = b.organization?.toLowerCase(); break;
+        case "category": aVal = a.category?.toLowerCase(); bVal = b.category?.toLowerCase(); break;
+        case "influence": aVal = { "High": 3, "Medium": 2, "Low": 1 }[a.influence]; bVal = { "High": 3, "Medium": 2, "Low": 1 }[b.influence]; break;
+        case "interest": aVal = { "High": 3, "Medium": 2, "Low": 1 }[a.interest]; bVal = { "High": 3, "Medium": 2, "Low": 1 }[b.interest]; break;
+        case "position": aVal = { "Supportive": 3, "Neutral": 2, "Resistant": 1 }[a.position]; bVal = { "Supportive": 3, "Neutral": 2, "Resistant": 1 }[b.position]; break;
+        default: return 0;
+      }
+      if (aVal === undefined) aVal = "";
+      if (bVal === undefined) bVal = "";
+      if (aVal < bVal) return sortDir === "asc" ? -1 : 1;
+      if (aVal > bVal) return sortDir === "asc" ? 1 : -1;
+      return 0;
+    });
+    return sorted;
+  }, [filteredData, sortBy, sortDir]);
+
   const stats = useMemo(() => {
-    const counts = filteredData.reduce((acc, s) => {
-      acc.supportive += s.position === "Supportive" ? 1 : 0;
-      acc.highPriority += s.priority === "High" ? 1 : 0;
-      acc.highInfluence += s.influence === "High" ? 1 : 0;
-      return acc;
-    }, { supportive: 0, highPriority: 0, highInfluence: 0 });
+    const counts = filteredData.reduce((acc, s) => ({
+      supportive: acc.supportive + (s.position === "Supportive" ? 1 : 0),
+      highPriority: acc.highPriority + (s.priority === "High" ? 1 : 0),
+      highInfluence: acc.highInfluence + (s.influence === "High" ? 1 : 0),
+    }), { supportive: 0, highPriority: 0, highInfluence: 0 });
     return { total: filteredData.length, ...counts };
   }, [filteredData]);
 
-  const categoryBreakdown = useMemo(() => 
-    Object.entries(filteredData.reduce((acc, s) => {
-      acc[s.category] = (acc[s.category] || 0) + 1;
-      return acc;
-    }, {}))
+  const categoryBreakdown = useMemo(() =>
+    Object.entries(filteredData.reduce((acc, s) => ({ ...acc, [s.category]: (acc[s.category] || 0) + 1 }), {}))
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value),
-  [filteredData]);
-
-  const influenceInterestMatrix = useMemo(() => 
-    filteredData.reduce((acc, s) => {
-      acc[`${s.influence}-${s.interest}`] = (acc[`${s.influence}-${s.interest}`] || 0) + 1;
-      return acc;
-    }, {
-      "High-High": 0, "High-Medium": 0, "High-Low": 0,
-      "Medium-High": 0, "Medium-Medium": 0, "Medium-Low": 0,
-      "Low-High": 0, "Low-Medium": 0, "Low-Low": 0,
-    }),
-  [filteredData]);
+    [filteredData]
+  );
 
   const positionBreakdown = useMemo(() => {
-    const counts = filteredData.reduce((acc, s) => {
-      acc[s.position] = (acc[s.position] || 0) + 1;
-      return acc;
-    }, {});
+    const counts = filteredData.reduce((acc, s) => ({ ...acc, [s.position]: (acc[s.position] || 0) + 1 }), {});
     return [
       { name: "Supportive", value: counts.Supportive || 0, color: getPosColor("Supportive") },
       { name: "Neutral", value: counts.Neutral || 0, color: getPosColor("Neutral") },
@@ -166,23 +252,16 @@ export default function StakeholderDashboard() {
   const risks = useMemo(() => filteredData.filter(s => s.influence === "High" && s.interest === "Low"), [filteredData]);
   const allies = useMemo(() => filteredData.filter(s => s.influence === "Medium" && s.interest === "High"), [filteredData]);
 
-  const entityTypeBreakdown = useMemo(() => {
-    const counts = filteredData.reduce((acc, s) => {
-      acc[s.entityType] = (acc[s.entityType] || 0) + 1;
-      return acc;
-    }, {});
-    return { people: counts.Person || 0, institutions: counts.Institution || 0 };
-  }, [filteredData]);
-
   const engagementScores = useMemo(() => {
     const result = filteredData.reduce((acc, s) => {
       const influenceScore = s.influence === "High" ? 40 : s.influence === "Medium" ? 25 : 10;
       const interestScore = s.interest === "High" ? 30 : s.interest === "Medium" ? 15 : 5;
       const positionScore = s.position === "Supportive" ? 25 : s.position === "Neutral" ? 12 : 0;
       const score = Math.min(100, influenceScore + interestScore + positionScore);
-      acc.totalScore += score;
-      if (score >= 75) acc.highCount++;
-      return acc;
+      return {
+        totalScore: acc.totalScore + score,
+        highCount: acc.highCount + (score >= 75 ? 1 : 0),
+      };
     }, { totalScore: 0, highCount: 0 });
     const avg = filteredData.length > 0 ? Math.round(result.totalScore / filteredData.length) : 0;
     return { average: avg, high: result.highCount };
@@ -212,6 +291,29 @@ export default function StakeholderDashboard() {
     );
   }
 
+  // SortHeader component for table column headers
+  const SortHeader = ({ column, label }) => (
+    <button
+      onClick={() => toggleSort(column)}
+      style={{
+        background: "none",
+        border: "none",
+        color: sortBy === column ? theme.primary : theme.textMuted,
+        fontSize: 12,
+        fontWeight: sortBy === column ? 700 : 500,
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+        transition: "all 0.2s ease",
+        padding: 0,
+      }}
+    >
+      {label}
+      {sortBy === column &&<ArrowUpDown size={14} style={{ transform: sortDir === "desc" ? "scaleY(-1)" : "scaleY(1)" }} />}
+    </button>
+  );
+
   return (
     <div style={{ background: theme.bg, minHeight: "100vh", padding: "24px 16px", fontFamily: "system-ui", lineHeight: 1.6 }}>
       <div style={{ maxWidth: 1600, margin: "0 auto" }}>
@@ -220,7 +322,40 @@ export default function StakeholderDashboard() {
             <h1 style={{ fontSize: "clamp(32px, 5vw, 44px)", fontWeight: 800, color: theme.text, marginBottom: 8 }}>Stakeholder <span style={{ color: theme.primary }}>Engagement</span></h1>
             <p style={{ fontSize: 15, color: theme.textMuted, fontWeight: 500 }}>{data.length === 0 ? "No data loaded" : `${data.length} stakeholders • ${Math.max(new Set(data.map(s => s.category)).size, 1)} categories`}</p>
           </div>
-          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+            {data.length > 0 && (
+              <div style={{ display: "flex", gap: 8, background: theme.surface, padding: 4, borderRadius: 8, border: `1px solid ${theme.border}` }}>
+                {[{ id: "dashboard", label: "📊 Dashboard" }, { id: "allStakeholders", label: `📋 All (${data.length})` }].map(btn => (
+                  <button
+                    key={btn.id}
+                    onClick={() => { setViewMode(btn.id); setSearchResults(null); }}
+                    style={{
+                      padding: "8px 16px",
+                      borderRadius: 6,
+                      border: "none",
+                      background: viewMode === btn.id ? theme.primary : "transparent",
+                      color: viewMode === btn.id ? theme.bg : theme.text,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      transition: "all 0.2s ease",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (viewMode !== btn.id) {
+                        e.target.style.background = theme.hover;
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (viewMode !== btn.id) {
+                        e.target.style.background = "transparent";
+                      }
+                    }}
+                  >
+                    {btn.label}
+                  </button>
+                ))}
+              </div>
+            )}
             <button onClick={handleRefresh} disabled={refreshing} style={{ ...buttonStyle(), background: refreshing ? `${theme.primary}22` : "transparent", cursor: refreshing ? "wait" : "pointer" }}>
               {refreshing ? "🔄 Updating..." : "🔄 Refresh"}
             </button>
@@ -228,17 +363,18 @@ export default function StakeholderDashboard() {
           </div>
         </div>
 
-        {/* SEARCH SECTION */}
-        {data.length > 0 && (
+        {/* SEARCH SECTION - Only in dashboard view */}
+        {viewMode === "dashboard" && data.length > 0 && (
           <div style={{ marginBottom: 40, position: "relative" }}>
             <input type="text" placeholder="🔍 Search by name or ID" value={searchQuery} onChange={(e) => handleSearch(e.target.value)} onKeyDown={handleKeyPress} style={{ width: "100%", padding: "12px 16px", borderRadius: 8, border: `2px solid ${theme.border}`, background: theme.surface, color: theme.text, fontSize: 14, transition: "all 0.2s ease" }} onFocus={(e) => { e.target.style.borderColor = theme.primary; e.target.style.boxShadow = isDark ? "0 0 0 3px rgba(138,180,248,0.1)" : "0 0 0 3px rgba(31,113,184,0.1)"; }} onBlur={(e) => { e.target.style.borderColor = theme.border; e.target.style.boxShadow = "none"; }} autoFocus />
             {searchQuery && <button onClick={() => handleSearch("")} style={{ position: "absolute", right: 16, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: theme.textMuted, cursor: "pointer", fontSize: 18, transition: "all 0.2s ease" }} onMouseEnter={(e) => e.target.style.color = theme.text} onMouseLeave={(e) => e.target.style.color = theme.textMuted} title="Clear search (Esc)">✕</button>}
           </div>
         )}
 
-        {/* SEARCH RESULTS */}
-        {searchQuery && !searchResults && <div style={{ padding: 40, textAlign: "center", color: theme.textMuted, fontSize: 14 }}>✗ No stakeholder found. Try another name or ID.</div>}
-        {searchResults && (
+        {/* SEARCH RESULTS - Only in dashboard view */}
+        {viewMode === "dashboard" && searchQuery && !searchResults && <div style={{ padding: 40, textAlign: "center", color: theme.textMuted, fontSize: 14 }}>✗ No stakeholder found. Try another name or ID.</div>}
+        
+        {viewMode === "dashboard" && searchResults && (
           <Section title={`🎯 Profile: ${searchResults.name} (${searchResults.id})`}>
             <ResponsiveLayout>
               <Card>
@@ -291,7 +427,58 @@ export default function StakeholderDashboard() {
           </Section>
         )}
 
-        {!searchResults && data.length > 0 && (
+        {/* ALL STAKEHOLDERS VIEW */}
+        {viewMode === "allStakeholders" && (
+          <Section title="📋 Complete Stakeholder Index">
+            <Card>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ borderBottom: `2px solid ${theme.divider}`, background: theme.surface }}>
+                      <td style={{ padding: "12px 8px", textAlign: "left" }}><SortHeader column="name" label="Name" /></td>
+                      <td style={{ padding: "12px 8px", textAlign: "left" }}><SortHeader column="org" label="Organization" /></td>
+                      <td style={{ padding: "12px 8px", textAlign: "center" }}><SortHeader column="category" label="Category" /></td>
+                      <td style={{ padding: "12px 8px", textAlign: "center" }}><SortHeader column="influence" label="Influence" /></td>
+                      <td style={{ padding: "12px 8px", textAlign: "center" }}><SortHeader column="interest" label="Interest" /></td>
+                      <td style={{ padding: "12px 8px", textAlign: "center" }}><SortHeader column="position" label="Position" /></td>
+                      <td style={{ padding: "12px 8px", textAlign: "center" }}>Sentiment</td>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedData.map((s, idx) => (
+                      <tr
+                        key={s.id}
+                        style={{
+                          borderBottom: `1px solid ${theme.border}`,
+                          background: idx % 2 === 0 ? "transparent" : theme.surface,
+                          cursor: "pointer",
+                          transition: "all 0.2s ease",
+                        }}
+                        onClick={() => handleSearch(s.name)}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = theme.cardHover; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = idx % 2 === 0 ? "transparent" : theme.surface; }}
+                      >
+                        <td style={{ padding: "12px 8px" }}><strong style={{ color: theme.primary }}>{s.name}</strong></td>
+                        <td style={{ padding: "12px 8px", color: theme.textMuted, fontSize: 12 }}>{s.organization || "—"}</td>
+                        <td style={{ padding: "12px 8px", textAlign: "center" }}><Badge label={s.category} color={getCatColor(s.category)} /></td>
+                        <td style={{ padding: "12px 8px", textAlign: "center" }}><Badge label={s.influence} color={getLvlColor(s.influence)} /></td>
+                        <td style={{ padding: "12px 8px", textAlign: "center" }}><Badge label={s.interest} color={getLvlColor(s.interest)} /></td>
+                        <td style={{ padding: "12px 8px", textAlign: "center" }}><Badge label={s.position} color={getPosColor(s.position)} /></td>
+                        <td style={{ padding: "12px 8px", textAlign: "center" }}><Badge label={s.sentiment || "Neutral"} color={getSentColor(s.sentiment || "Neutral")} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${theme.border}`, fontSize: 12, color: theme.textMuted }}>
+                <strong style={{ color: theme.text }}>Total:</strong> {sortedData.length} stakeholders (matching your filters)
+              </div>
+            </Card>
+          </Section>
+        )}
+
+        {/* DASHBOARD VIEW */}
+        {viewMode === "dashboard" && !searchResults && data.length > 0 && (
           <>
             {/* FILTERS */}
             <div style={{ marginBottom: 40 }}>
@@ -323,40 +510,6 @@ export default function StakeholderDashboard() {
               <Card><div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 28 }}>⚡ Engagement Rate</div><div style={{ fontSize: 54, fontWeight: 800, color: theme.primary, marginBottom: 12 }}>{actionTracking.rate}%</div><div style={{ fontSize: 13, color: theme.textMuted, marginBottom: 24 }}>{actionTracking.total} stakeholders with next actions</div><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, paddingTop: 24, borderTop: `1px solid ${theme.divider}` }}><div><div style={{ fontSize: 11, color: theme.textMuted, marginBottom: 8, fontWeight: 600 }}>HIGH SCORES</div><div style={{ fontSize: 32, fontWeight: 700, color: getPosColor("Supportive") }}>{engagementScores.high}</div></div><div><div style={{ fontSize: 11, color: theme.textMuted, marginBottom: 8, fontWeight: 600 }}>SUPPORTIVE</div><div style={{ fontSize: 32, fontWeight: 700, color: theme.warning }}>{stats.supportive}</div></div></div></Card>
             </ResponsiveLayout>
 
-            {/* INFLUENCE/INTEREST HEATMAP */}
-            <Section title="🔥 Influence × Interest Heatmap">
-              <Card>
-                <div style={{ overflowX: "auto" }}>
-                  <div style={{ minWidth: 650, display: "grid", gridTemplateColumns: "120px repeat(3, 1fr)", gap: 2, padding: 2, background: theme.border, borderRadius: 8, overflow: "hidden" }}>
-                    <div style={{ background: theme.card, padding: 14, fontSize: 11, fontWeight: 600, color: theme.textMuted, textAlign: "center" }}>INTEREST</div>
-                    {["High", "Medium", "Low"].map(inf => <div key={inf} style={{ background: theme.card, padding: 14, fontSize: 11, fontWeight: 600, color: theme.textMuted, textAlign: "center" }}>Influence: {inf}</div>)}
-                    {["High", "Medium", "Low"].map(int => {
-                      const maxCount = Math.max(...Object.values(influenceInterestMatrix));
-                      return (
-                        <div key={int} style={{ gridColumn: "1 / -1", display: "contents" }}>
-                          <div style={{ background: theme.card, padding: 14, fontSize: 11, fontWeight: 600, color: theme.textMuted, textAlign: "center" }}>{int}</div>
-                          {["High", "Medium", "Low"].map(inf => {
-                            const count = influenceInterestMatrix[`${inf}-${int}`] || 0;
-                            const intensity = maxCount > 0 ? count / maxCount : 0;
-                            const bgColor = intensity === 0 ? theme.bg : `hsla(218, 90%, 50%, ${0.2 + intensity * 0.6})`;
-                            return (
-                              <div key={`${inf}-${int}`} style={{ background: bgColor, padding: 20, textAlign: "center", minHeight: 70, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", borderRadius: 4 }}>
-                                <div style={{ fontSize: 24, fontWeight: 800, color: intensity > 0.5 ? theme.text : theme.textMuted, marginBottom: 6 }}>{count}</div>
-                                <div style={{ fontSize: 10, color: intensity > 0.5 ? theme.text : theme.textMuted, opacity: 0.8 }}>stakeholders</div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div style={{ marginTop: 20, paddingTop: 20, borderTop: `1px solid ${theme.border}`, fontSize: 12, color: theme.textMuted }}>
-                    <strong style={{ color: theme.text }}>Reading the matrix:</strong> Darker cells = more stakeholders. High/High = supporters, High/Low = risks, Low/High = potential allies.
-                  </div>
-                </div>
-              </Card>
-            </Section>
-
             {/* STRATEGIC BREAKDOWN */}
             <ResponsiveLayout>
               <Card><div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 20 }}>🎯 Positioning</div>{positionBreakdown.map(item => <ProgressBar key={item.name} label={item.name} value={item.value} total={stats.total} color={item.color} />)}</Card>
@@ -365,22 +518,15 @@ export default function StakeholderDashboard() {
 
             {/* RISK & ALLIES */}
             <ResponsiveLayout>
-              <Card style={{ cursor: "pointer", transition: "all 0.3s ease" }} onClick={() => risks[0] && handleSearch(risks[0].name)} onMouseEnter={(e) => { e.currentTarget.style.background = theme.cardHover; e.currentTarget.style.borderColor = theme.divider; }} onMouseLeave={(e) => { e.currentTarget.style.background = theme.card; e.currentTarget.style.borderColor = theme.border; }}><div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 16 }}>⚠️ Risks</div><div style={{ fontSize: 36, fontWeight: 800, color: theme.danger, marginBottom: 8 }}>{risks.length}</div><div style={{ fontSize: 13, color: theme.textMuted, marginBottom: 16 }}>Click to view details</div>{risks.length > 0 && <div style={{ fontSize: 12, paddingTop: 12, borderTop: `1px solid ${theme.divider}` }}>{risks.slice(0, 3).map(s => <div key={s.id} style={{ color: theme.text, marginBottom: 6, cursor: "pointer", padding: 6, borderRadius: 4, background: theme.surface, transition: "all 0.2s ease" }} onClick={(e) => { e.stopPropagation(); handleSearch(s.name); }} onMouseEnter={(e) => e.currentTarget.style.background = theme.hover} onMouseLeave={(e) => e.currentTarget.style.background = theme.surface}>→ {s.name}</div>)}</div>}</Card>
-              <Card style={{ cursor: "pointer", transition: "all 0.3s ease" }} onClick={() => allies[0] && handleSearch(allies[0].name)} onMouseEnter={(e) => { e.currentTarget.style.background = theme.cardHover; e.currentTarget.style.borderColor = theme.divider; }} onMouseLeave={(e) => { e.currentTarget.style.background = theme.card; e.currentTarget.style.borderColor = theme.border; }}><div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 16 }}>🤝 Allies</div><div style={{ fontSize: 36, fontWeight: 800, color: theme.success, marginBottom: 8 }}>{allies.length}</div><div style={{ fontSize: 13, color: theme.textMuted, marginBottom: 16 }}>Click to view details</div>{allies.length > 0 && <div style={{ fontSize: 12, paddingTop: 12, borderTop: `1px solid ${theme.divider}` }}>{allies.slice(0, 3).map(s => <div key={s.id} style={{ color: theme.text, marginBottom: 6, cursor: "pointer", padding: 6, borderRadius: 4, background: theme.surface, transition: "all 0.2s ease" }} onClick={(e) => { e.stopPropagation(); handleSearch(s.name); }} onMouseEnter={(e) => e.currentTarget.style.background = theme.hover} onMouseLeave={(e) => e.currentTarget.style.background = theme.surface}>→ {s.name}</div>)}</div>}</Card>
+              <Card style={{ cursor: "pointer" }} onClick={() => risks[0] && handleSearch(risks[0].name)} hoverable><div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 16 }}>⚠️ Risks</div><div style={{ fontSize: 36, fontWeight: 800, color: theme.danger, marginBottom: 8 }}>{risks.length}</div><div style={{ fontSize: 13, color: theme.textMuted, marginBottom: 16 }}>{risks.length > 0 ? "Click to view details" : "No risks found"}</div>{risks.length > 0 && <div style={{ fontSize: 12, paddingTop: 12, borderTop: `1px solid ${theme.divider}` }}>{risks.slice(0, 3).map(s => <div key={s.id} style={{ color: theme.text, marginBottom: 6, cursor: "pointer", padding: 6, borderRadius: 4, background: theme.surface }} onClick={(e) => { e.stopPropagation(); handleSearch(s.name); }} onMouseEnter={(e) => e.currentTarget.style.background = theme.hover} onMouseLeave={(e) => e.currentTarget.style.background = theme.surface}>→ {s.name}</div>)}</div>}</Card>
+              <Card style={{ cursor: "pointer" }} onClick={() => allies[0] && handleSearch(allies[0].name)} hoverable><div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 16 }}>🤝 Allies</div><div style={{ fontSize: 36, fontWeight: 800, color: theme.success, marginBottom: 8 }}>{allies.length}</div><div style={{ fontSize: 13, color: theme.textMuted, marginBottom: 16 }}>{allies.length > 0 ? "Click to view details" : "No allies found"}</div>{allies.length > 0 && <div style={{ fontSize: 12, paddingTop: 12, borderTop: `1px solid ${theme.divider}` }}>{allies.slice(0, 3).map(s => <div key={s.id} style={{ color: theme.text, marginBottom: 6, cursor: "pointer", padding: 6, borderRadius: 4, background: theme.surface }} onClick={(e) => { e.stopPropagation(); handleSearch(s.name); }} onMouseEnter={(e) => e.currentTarget.style.background = theme.hover} onMouseLeave={(e) => e.currentTarget.style.background = theme.surface}>→ {s.name}</div>)}</div>}</Card>
             </ResponsiveLayout>
-
-            {/* TYPE ANALYSIS */}
-            <Card style={{ marginBottom: 40 }}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 20 }}>👥 People vs Institutions</div>
-              <ProgressBar label="Individuals" value={entityTypeBreakdown.people} total={stats.total} color={theme.secondary} />
-              <ProgressBar label="Institutions" value={entityTypeBreakdown.institutions} total={stats.total} color={theme.info} />
-            </Card>
 
             {/* TOP STAKEHOLDERS */}
             <Section title="👥 Top Stakeholders">
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 20 }}>
                 {filteredData.slice(0, 6).map(s => (
-                  <Card key={s.id} style={{ padding: 20, cursor: "pointer", transition: "all 0.3s ease", transform: "translateY(0)" }} onClick={() => handleSearch(s.name)} onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = isDark ? "0 2px 12px rgba(138,180,248,0.15)" : "0 2px 12px rgba(31,113,184,0.15)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }}>
+                  <Card key={s.id} style={{ cursor: "pointer" }} onClick={() => handleSearch(s.name)} hoverable>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: 14 }}>
                       <div><h3 style={{ fontSize: 15, fontWeight: 700, color: theme.text, marginBottom: 4 }}>{s.name}</h3><div style={{ fontSize: 12, color: theme.textMuted }}>{s.organization}</div></div>
                       <div style={{ display: "flex", gap: 6, flexDirection: "column", alignItems: "flex-end" }}><Badge label={s.category} color={getCatColor(s.category)} /><Badge label={s.sentiment || "Neutral"} color={getSentColor(s.sentiment || "Neutral")} /></div>
@@ -390,7 +536,7 @@ export default function StakeholderDashboard() {
                       <div><div style={{ fontSize: 10, color: theme.textMuted, marginBottom: 4, fontWeight: 600 }}>INTEREST</div><Badge label={s.interest} color={getLvlColor(s.interest)} /></div>
                       <div><div style={{ fontSize: 10, color: theme.textMuted, marginBottom: 4, fontWeight: 600 }}>POSITION</div><Badge label={s.position} color={getPosColor(s.position)} /></div>
                     </div>
-                    {s.nextAction && <div style={{ fontSize: 12, color: theme.textMuted, padding: 10, background: theme.surface, borderRadius: 6, borderLeft: `3px solid ${getLvlColor(s.priority)}`, transition: "all 0.2s ease" }}>📌 {s.nextAction}</div>}
+                    {s.nextAction && <div style={{ fontSize: 12, color: theme.textMuted, padding: 10, background: theme.surface, borderRadius: 6, borderLeft: `3px solid ${getLvlColor(s.priority)}` }}>📌 {s.nextAction}</div>}
                   </Card>
                 ))}
               </div>
