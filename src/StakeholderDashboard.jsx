@@ -8,9 +8,7 @@ export default function StakeholderDashboard() {
   
   const [data, setData] = useState([]);
   const [error, setError] = useState(null);
-  const [stateFilter, setStateFilter] = useState("all"); // Filter by state (Rajasthan, National, etc)
-  const [filter, setFilter] = useState("all");
-  const [sentimentFilter, setSentimentFilter] = useState("all");
+  const [stateFilter, setStateFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -118,34 +116,47 @@ export default function StakeholderDashboard() {
   );
 
   const ThemeToggle = () => (
-    <button
-      onClick={toggleTheme}
+    <div
       style={{
-        padding: "8px 12px",
-        borderRadius: "8px",
-        border: `1px solid ${theme.border}`,
-        background: theme.surface,
-        color: theme.text,
-        cursor: "pointer",
         display: "flex",
         alignItems: "center",
         gap: "8px",
-        transition: "all 0.2s ease",
-        fontSize: "13px",
-        fontWeight: 500,
+        background: theme.surface,
+        padding: "4px 8px",
+        borderRadius: "20px",
+        border: `1px solid ${theme.border}`,
+        cursor: "pointer",
+        transition: "all 0.3s ease",
       }}
-      onMouseEnter={(e) => {
-        e.target.style.background = theme.cardHover;
-        e.target.style.borderColor = theme.divider;
-      }}
-      onMouseLeave={(e) => {
-        e.target.style.background = theme.surface;
-        e.target.style.borderColor = theme.border;
-      }}
+      onClick={toggleTheme}
+      title="Toggle dark/light mode"
     >
-      {isDark ? <Sun size={16} /> : <Moon size={16} />}
-      {isDark ? "Light" : "Dark"}
-    </button>
+      <Moon size={16} style={{ color: isDark ? theme.primary : theme.textMuted, transition: "all 0.3s ease" }} />
+      <div
+        style={{
+          width: "28px",
+          height: "16px",
+          background: isDark ? theme.primary : theme.border,
+          borderRadius: "8px",
+          position: "relative",
+          transition: "all 0.3s ease",
+        }}
+      >
+        <div
+          style={{
+            width: "14px",
+            height: "14px",
+            background: theme.bg,
+            borderRadius: "6px",
+            position: "absolute",
+            top: "1px",
+            left: isDark ? "13px" : "1px",
+            transition: "all 0.3s ease",
+          }}
+        />
+      </div>
+      <Sun size={16} style={{ color: !isDark ? theme.warning : theme.textMuted, transition: "all 0.3s ease" }} />
+    </div>
   );
 
   const loadData = async () => {
@@ -196,11 +207,6 @@ export default function StakeholderDashboard() {
 
   const filteredData = useMemo(() => {
     let result = data;
-    if (filter === "all") result = data;
-    else if (filter === "influencers") result = data.filter(s => s.influence === "High" && s.interest === "High");
-    else if (filter === "resistant") result = data.filter(s => s.position === "Resistant");
-    else if (filter === "priority") result = data.filter(s => s.priority === "High" && s.nextAction);
-    if (sentimentFilter !== "all") result = result.filter(s => s.sentiment === sentimentFilter);
     if (stateFilter !== "all") {
       if (stateFilter === "unknown") {
         result = result.filter(s => !s.state || s.state === "Unknown");
@@ -209,7 +215,7 @@ export default function StakeholderDashboard() {
       }
     }
     return result;
-  }, [data, filter, sentimentFilter, stateFilter]);
+  }, [data, stateFilter]);
 
   const sortedData = useMemo(() => {
     const sorted = [...filteredData].sort((a, b) => {
@@ -550,25 +556,7 @@ export default function StakeholderDashboard() {
               <Card style={{ cursor: "pointer" }} onClick={() => allies[0] && handleSearch(allies[0].name)} hoverable><div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 16 }}>🤝 Allies</div><div style={{ fontSize: 36, fontWeight: 800, color: theme.success, marginBottom: 8 }}>{allies.length}</div><div style={{ fontSize: 13, color: theme.textMuted, marginBottom: 16 }}>{allies.length > 0 ? "Click to view details" : "No allies found"}</div>{allies.length > 0 && <div style={{ fontSize: 12, paddingTop: 12, borderTop: `1px solid ${theme.divider}` }}>{allies.slice(0, 3).map(s => <div key={s.id} style={{ color: theme.text, marginBottom: 6, cursor: "pointer", padding: 6, borderRadius: 4, background: theme.surface }} onClick={(e) => { e.stopPropagation(); handleSearch(s.name); }} onMouseEnter={(e) => e.currentTarget.style.background = theme.hover} onMouseLeave={(e) => e.currentTarget.style.background = theme.surface}>→ {s.name}</div>)}</div>}</Card>
             </ResponsiveLayout>
 
-            {/* TOP STAKEHOLDERS */}
-            <Section title="👥 Top Stakeholders">
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 20 }}>
-                {filteredData.slice(0, 6).map(s => (
-                  <Card key={s.id} style={{ cursor: "pointer" }} onClick={() => handleSearch(s.name)} hoverable>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: 14 }}>
-                      <div><h3 style={{ fontSize: 15, fontWeight: 700, color: theme.text, marginBottom: 4 }}>{s.name}</h3><div style={{ fontSize: 12, color: theme.textMuted }}>{s.organization}</div></div>
-                      <div style={{ display: "flex", gap: 6, flexDirection: "column", alignItems: "flex-end" }}><Badge label={s.category} color={getCatColor(s.category)} /><Badge label={s.sentiment || "Neutral"} color={getSentColor(s.sentiment || "Neutral")} /></div>
-                    </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 12, paddingBottom: 12, borderBottom: `1px solid ${theme.divider}` }}>
-                      <div><div style={{ fontSize: 10, color: theme.textMuted, marginBottom: 4, fontWeight: 600 }}>INFLUENCE</div><Badge label={s.influence} color={getLvlColor(s.influence)} /></div>
-                      <div><div style={{ fontSize: 10, color: theme.textMuted, marginBottom: 4, fontWeight: 600 }}>INTEREST</div><Badge label={s.interest} color={getLvlColor(s.interest)} /></div>
-                      <div><div style={{ fontSize: 10, color: theme.textMuted, marginBottom: 4, fontWeight: 600 }}>POSITION</div><Badge label={s.position} color={getPosColor(s.position)} /></div>
-                    </div>
-                    {s.nextAction && <div style={{ fontSize: 12, color: theme.textMuted, padding: 10, background: theme.surface, borderRadius: 6, borderLeft: `3px solid ${getLvlColor(s.priority)}` }}>📌 {s.nextAction}</div>}
-                  </Card>
-                ))}
-              </div>
-            </Section>
+
           </>
         )}
       </div>
