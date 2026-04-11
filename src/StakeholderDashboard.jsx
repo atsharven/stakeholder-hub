@@ -1,7 +1,7 @@
 import { fetchStakeholders } from './googleSheetsClient'
 import { useState, useMemo, useEffect } from "react";
-import { Users, AlertTriangle, CheckCircle2, Zap, Moon, Sun, ArrowUpDown } from "lucide-react";
-import { useTheme, categoryColors, levelColors, positionColors, sentimentColors, relationshipColors } from './theme'
+import { Moon, Sun, ArrowUpDown } from "lucide-react";
+import { useTheme, categoryColors, levelColors, positionColors, sentimentColors } from './theme'
 
 export default function StakeholderDashboard() {
   const { theme, isDark, toggleTheme } = useTheme();
@@ -12,9 +12,10 @@ export default function StakeholderDashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [viewMode, setViewMode] = useState("dashboard"); // 'dashboard' or 'allStakeholders'
+  const [viewMode, setViewMode] = useState("dashboard");
   const [sortBy, setSortBy] = useState("name");
   const [sortDir, setSortDir] = useState("asc");
+  const [showAdvancedAnalytics, setShowAdvancedAnalytics] = useState(false);
   
   // Reusable style objects to minimize code
   const buttonStyle = (active = false) => ({
@@ -99,14 +100,6 @@ export default function StakeholderDashboard() {
         <div style={{ width: `${(value / total) * 100}%`, height: "100%", background: color, transition: "width 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)" }} />
       </div>
     </div>
-  );
-
-  const MetricCard = ({ value, label, color, icon: Icon }) => (
-    <Card style={{ textAlign: "center", padding: 16 }}>
-      <Icon size={24} color={color} style={{ marginBottom: 8, opacity: 0.8 }} />
-      <div style={{ fontSize: 44, fontWeight: 800, color, marginBottom: 4 }}>{value}</div>
-      <div style={{ fontSize: 12, color: theme.textMuted, fontWeight: 500 }}>{label}</div>
-    </Card>
   );
 
   const ResponsiveLayout = ({ children }) => (
@@ -504,14 +497,8 @@ export default function StakeholderDashboard() {
                 <div style={{ fontSize: 12, fontWeight: 600, color: theme.textMuted, marginBottom: 8 }}>STATE</div>
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                   {(() => {
-                    // Get unique states from data (dynamically extracted)
-                    const stateValues = data.map(s => s.state);
-                    console.log('State values sample:', stateValues.slice(0, 10));
-                    
-                    const uniqueStates = [...new Set(stateValues.filter(s => s && typeof s === 'string'))].sort();
+                    const uniqueStates = [...new Set(data.map(s => s.state).filter(s => s && typeof s === 'string'))].sort();
                     const unassignedCount = data.filter(s => !s.state || s.state === "Unknown").length;
-                    
-                    console.log('Unique states found:', uniqueStates);
                     
                     return [
                       { id: "all", label: `All` },
@@ -534,25 +521,68 @@ export default function StakeholderDashboard() {
               </div>
             </div>
 
-            {/* PRIMARY METRICS */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 20, marginBottom: 40 }}>
-              <MetricCard key="total" value={stats.total} label="Total Stakeholders" icon={Users} color={theme.primary} />
-              <MetricCard key="high" value={stats.highPriority} label="High Priority" icon={AlertTriangle} color={getLvlColor("High")} />
-              <MetricCard key="supp" value={stats.supportive} label="Supportive" icon={CheckCircle2} color={getPosColor("Supportive")} />
-              <MetricCard key="inf" value={stats.highInfluence} label="High Influence" icon={Zap} color={theme.warning} />
+
+            {/* ADVANCED ANALYTICS - Collapsible */}
+            <div style={{ marginTop: 40 }}>
+              <button 
+                onClick={() => setShowAdvancedAnalytics(!showAdvancedAnalytics)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  background: "none",
+                  border: "none",
+                  color: theme.primary,
+                  fontSize: 16,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  padding: "16px 0",
+                  transition: "all 0.3s ease"
+                }}
+              >
+                <span style={{ transform: showAdvancedAnalytics ? "rotate(90deg)" : "rotate(0deg)", display: "inline-block", transition: "transform 0.3s ease" }}>▶</span>
+                📊 Advanced Analytics
+              </button>
+
+              {showAdvancedAnalytics && (
+                <div style={{ marginTop: 20 }}>
+                  {/* Overview Metrics */}
+                  <div style={{ marginBottom: 40 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: theme.text, marginBottom: 16, textTransform: "uppercase", letterSpacing: "0.5px" }}>Overview</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 16 }}>
+                      <Card><div style={{ fontSize: 28, fontWeight: 800, color: theme.primary }}>{stats.total}</div><div style={{ fontSize: 11, color: theme.textMuted, marginTop: 4, fontWeight: 600 }}>Total Stakeholders</div></Card>
+                      <Card><div style={{ fontSize: 28, fontWeight: 800, color: getLvlColor("High") }}>{stats.highPriority}</div><div style={{ fontSize: 11, color: theme.textMuted, marginTop: 4, fontWeight: 600 }}>High Priority</div></Card>
+                      <Card><div style={{ fontSize: 28, fontWeight: 800, color: getPosColor("Supportive") }}>{stats.supportive}</div><div style={{ fontSize: 11, color: theme.textMuted, marginTop: 4, fontWeight: 600 }}>Supportive</div></Card>
+                      <Card><div style={{ fontSize: 28, fontWeight: 800, color: theme.warning }}>{stats.highInfluence}</div><div style={{ fontSize: 11, color: theme.textMuted, marginTop: 4, fontWeight: 600 }}>High Influence</div></Card>
+                    </div>
+                  </div>
+
+                  {/* Health & Engagement */}
+                  <div style={{ marginBottom: 40 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: theme.text, marginBottom: 16, textTransform: "uppercase", letterSpacing: "0.5px" }}>Engagement</div>
+                    <ResponsiveLayout>
+                      <Card>
+                        <div style={{ fontSize: 36, fontWeight: 800, color: engagementScores.average >= 70 ? theme.success : engagementScores.average >= 50 ? theme.warning : theme.danger }}>{engagementScores.average}</div>
+                        <div style={{ fontSize: 11, color: theme.textMuted, marginTop: 8, fontWeight: 600 }}>Health Score</div>
+                        <div style={{ fontSize: 12, color: theme.textMuted, marginTop: 16, paddingTop: 16, borderTop: `1px solid ${theme.divider}` }}>
+                          <div style={{ marginBottom: 8 }}><strong>{actionTracking.total}</strong> with next actions</div>
+                          <div><strong>{actionTracking.rate}%</strong> engagement rate</div>
+                        </div>
+                      </Card>
+                    </ResponsiveLayout>
+                  </div>
+
+                  {/* Positioning & Categories */}
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: theme.text, marginBottom: 16, textTransform: "uppercase", letterSpacing: "0.5px" }}>Distribution</div>
+                    <ResponsiveLayout>
+                      <Card><div style={{ margintBottom: 20 }}>Positioning</div>{positionBreakdown.map(item => <ProgressBar key={item.name} label={item.name} value={item.value} total={stats.total} color={item.color} />)}</Card>
+                      <Card><div style={{ marginBottom: 20 }}>Categories</div>{categoryBreakdown.map(item => <ProgressBar key={item.name} label={item.name} value={item.value} total={stats.total} color={getCatColor(item.name)} />)}</Card>
+                    </ResponsiveLayout>
+                  </div>
+                </div>
+              )}
             </div>
-
-            {/* HEALTH DASHBOARD */}
-            <ResponsiveLayout>
-              <Card><div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 28 }}>📊 Health Score</div><div style={{ fontSize: 54, fontWeight: 800, color: engagementScores.average >= 70 ? theme.success : engagementScores.average >= 50 ? theme.warning : theme.danger, marginBottom: 12 }}>{engagementScores.average}</div><div style={{ fontSize: 13, color: theme.textMuted, marginBottom: 24 }}>Avg engagement quality</div><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, paddingTop: 24, borderTop: `1px solid ${theme.divider}` }}><div><div style={{ fontSize: 11, color: theme.textMuted, marginBottom: 8, fontWeight: 600 }}>ACTIONS</div><div style={{ fontSize: 32, fontWeight: 700, color: theme.primary }}>{actionTracking.total}</div></div><div><div style={{ fontSize: 11, color: theme.textMuted, marginBottom: 8, fontWeight: 600 }}>ENGAGEMENT</div><div style={{ fontSize: 32, fontWeight: 700, color: theme.secondary }}>{actionTracking.rate}%</div></div></div></Card>
-              <Card><div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 28 }}>⚡ Engagement Rate</div><div style={{ fontSize: 54, fontWeight: 800, color: theme.primary, marginBottom: 12 }}>{actionTracking.rate}%</div><div style={{ fontSize: 13, color: theme.textMuted, marginBottom: 24 }}>{actionTracking.total} stakeholders with next actions</div><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, paddingTop: 24, borderTop: `1px solid ${theme.divider}` }}><div><div style={{ fontSize: 11, color: theme.textMuted, marginBottom: 8, fontWeight: 600 }}>HIGH SCORES</div><div style={{ fontSize: 32, fontWeight: 700, color: getPosColor("Supportive") }}>{engagementScores.high}</div></div><div><div style={{ fontSize: 11, color: theme.textMuted, marginBottom: 8, fontWeight: 600 }}>SUPPORTIVE</div><div style={{ fontSize: 32, fontWeight: 700, color: theme.warning }}>{stats.supportive}</div></div></div></Card>
-            </ResponsiveLayout>
-
-            {/* STRATEGIC BREAKDOWN */}
-            <ResponsiveLayout>
-              <Card><div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 20 }}>🎯 Positioning</div>{positionBreakdown.map(item => <ProgressBar key={item.name} label={item.name} value={item.value} total={stats.total} color={item.color} />)}</Card>
-              <Card><div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 20 }}>📁 Categories</div>{categoryBreakdown.map(item => <ProgressBar key={item.name} label={item.name} value={item.value} total={stats.total} color={getCatColor(item.name)} />)}</Card>
-            </ResponsiveLayout>
 
 
 

@@ -50,32 +50,17 @@ const parseCSV = (csvText) => {
     if (Object.values(row).some(v => v && v.trim())) rows.push(row);
   }
   
-  // Debug: Show parsing stats
-  console.log(`  ✓ Parsed ${rows.length} data rows (${lines.length - 1} total lines)`);
-  console.log(`  Cells in first row: ${parseCSVLine(lines[1]).length}`);
-  
   return rows;
 };
 
-const mapRow = (row, rowIndex) => {
-  // Normalize state name from sheet to state code
-  const rawState = row[COLUMN_NAMES.state] || '';
-  const normalizedState = GOOGLE_SHEET_CONFIG.normalizeStateName(rawState);
-  
-  // Debug: Log first row to see what's in it
-  if (rowIndex === 0) {
-    console.log(`  ✓ Row 0 mapping check:`);
-    console.log(`    ID ("${COLUMN_NAMES.id}"): "${row[COLUMN_NAMES.id]}"`);
-    console.log(`    State ("${COLUMN_NAMES.state}"): "${row[COLUMN_NAMES.state]}"`);
-    console.log(`    Name ("${COLUMN_NAMES.name}"): "${row[COLUMN_NAMES.name]}"`);
-    console.log(`    Organisation ("${COLUMN_NAMES.organization}"): "${row[COLUMN_NAMES.organization]}"`);
-    console.log(`    Sector ("${COLUMN_NAMES.category}"): "${row[COLUMN_NAMES.category]}"`);
-    console.log(`  Full row keys:`, Object.keys(row));
-  }
+const mapRow = (row, rowIndex, sheetState) => {
+  // Keep state as-is from config (no normalization)
+  // State value from sheet is used for validation, but we use configured state name
+  const stateValue = row[COLUMN_NAMES.state] || '';
   
   return {
     id: row[COLUMN_NAMES.id] || '',
-    state: normalizedState, // Use normalized state code (e.g., "RJ" not "Rajasthan")
+    state: sheetState || stateValue || 'Unknown', // Use configured state name, fallback to sheet value
     name: row[COLUMN_NAMES.name] || '',
     organization: row[COLUMN_NAMES.organization] || '',
     designation: row[COLUMN_NAMES.designation] || '',
@@ -108,6 +93,9 @@ const fetchSheetByGid = async (gid) => {
   const baseUrl = GOOGLE_SHEET_CONFIG.getCsvUrl();
   const csvUrl = `${baseUrl}&gid=${gid}&t=${Date.now()}`;
   
+  // Get the configured state name for this GID
+  const configuredState = GOOGLE_SHEET_CONFIG.getStateFromGid(gid);
+  
   try {
     const response = await fetch(csvUrl, { mode: 'cors' });
     if (!response.ok) throw new Error(`Failed to fetch sheet GID ${gid}`);
@@ -115,40 +103,11 @@ const fetchSheetByGid = async (gid) => {
     const csvText = await response.text();
     const rows = parseCSV(csvText);
     
-    // Debug: Check header names and show actual data structure
-    if (csvText && rows.length > 0) {
-      const lines = csvText.split('\n');
-      const headerLine = lines[0];
-      const headerArray = parseCSVLine(headerLine);
-      
-      const stateCode = GOOGLE_SHEET_CONFIG.getStateFromGid(gid);
-      console.log(`\n📋 Sheet Headers for ${stateCode} (GID: ${gid}):`);
-      console.log('Headers:', headerArray);
-      console.log('Header count:', headerArray.length);
-      
-      // Show column indices with actual headers
-      headerArray.forEach((header, idx) => {
-        console.log(`  [${idx}] "${header}"`);
-      });
-      
-      // Show first row of actual data
-      if (rows.length > 0) {
-        const firstRow = rows[0];
-        console.log(`\n🔍 Sample data from ${stateCode}:`);
-        console.log('First row keys:', Object.keys(firstRow));
-        console.log('First row values:', {
-          id: firstRow.id,
-          state: firstRow.state,
-          name: firstRow.name,
-          organization: firstRow.organization,
-          category: firstRow.category
-        });
-      }
-    }
+    console.log(`📋 Loaded sheet for ${configuredState} (${rows.length} rows)`);
     
-    return rows.map((row, idx) => mapRow(row, idx));
+    return rows.map((row, idx) => mapRow(row, idx, configuredState));
   } catch (error) {
-    console.warn(`Could not fetch sheet GID ${gid}:`, error.message);
+    console.error(`Sheet fetch error (GID ${gid}):`, error.message);
     return [];
   }
 };
@@ -163,13 +122,7 @@ export const fetchStakeholders = async () => {
   
   try {
     // Fetch all sheets in parallel
-    const allSheetPromises = sheetGids.map(gid => 
-      fetchSheetByGid(gid).then(rows => rows.map(row => ({
-        ...row,
-        // Ensure state is set based on GID if not already in data
-        state: row.state || GOOGLE_SHEET_CONFIG.getStateFromGid(gid) || 'Unknown'
-      })))
-    );
+    const allSheetPromises = sheetGids.map(gid => fetchSheetByGid(gid));
     
     const allSheetResults = await Promise.all(allSheetPromises);
     
@@ -180,22 +133,12 @@ export const fetchStakeholders = async () => {
       throw new Error('No data found across all sheets');
     }
     
-    // Debug: Log sample data and counts
-    console.log(`✓ Loaded ${allStakeholders.length} total stakeholders from ${sheetGids.length} sheets`);
-    console.log(`  - National: ${allStakeholders.filter(s => s.state === 'National').length}`);
-    console.log(`  - RJ: ${allStakeholders.filter(s => s.state === 'RJ').length}`);
-    console.log(`  - MP: ${allStakeholders.filter(s => s.state === 'MP').length}`);
-    console.log(`  - Unknown state: ${allStakeholders.filter(s => s.state === 'Unknown').length}`);
-    
-    // Show sample of first 3 rows to inspect data quality
-    console.log('📊 Sample data (first 3 rows):', allStakeholders.slice(0, 3).map(s => ({
-      id: s.id,
-      name: s.name,
-      state: s.state,
-      organization: s.organization,
-      influence: s.influence,
-      interest: s.interest
-    })));
+    // Log summary
+    console.log(`✓ Loaded ${allStakeholders.length} stakeholders from ${sheetGids.length} sheets`);
+    GOOGLE_SHEET_CONFIG.getAllStateNames().forEach(state => {
+      const count = allStakeholders.filter(s => s.state === state).length;
+      if (count > 0) console.log(`  ${state}: ${count}`);
+    });
     
     return allStakeholders;
   } catch (error) {
