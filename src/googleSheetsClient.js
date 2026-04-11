@@ -1,21 +1,53 @@
 import { GOOGLE_SHEET_CONFIG, COLUMN_NAMES } from './config'
 
 const parseCSV = (csvText) => {
-  const lines = csvText.split('\n').filter(line => line.trim());
+  const lines = csvText.split('\n');
   if (lines.length < 2) throw new Error('Empty data');
   
-  const headers = lines[0].split(',').map(h => h.trim());
+  // Proper CSV parser that handles quoted fields with commas/newlines
+  const parseCSVLine = (line) => {
+    const cells = [];
+    let current = '';
+    let insideQuotes = false;
+    
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      const nextChar = line[i + 1];
+      
+      if (char === '"') {
+        if (insideQuotes && nextChar === '"') {
+          // Escaped quote
+          current += '"';
+          i++;
+        } else {
+          // Toggle quote state
+          insideQuotes = !insideQuotes;
+        }
+      } else if (char === ',' && !insideQuotes) {
+        // Field separator
+        cells.push(current.trim());
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    cells.push(current.trim());
+    return cells;
+  };
+  
+  const headers = parseCSVLine(lines[0]);
   const rows = [];
   
   for (let i = 1; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (!line) continue;
+    const line = lines[i];
+    if (!line.trim()) continue;
     
-    const cells = line.split(',').map(c => c.trim());
+    const cells = parseCSVLine(line);
     const row = {};
     headers.forEach((h, idx) => row[h] = cells[idx] || '');
     
-    if (Object.values(row).some(v => v)) rows.push(row);
+    // Only add if has at least one non-empty value
+    if (Object.values(row).some(v => v && v.trim())) rows.push(row);
   }
   
   return rows;
@@ -23,37 +55,116 @@ const parseCSV = (csvText) => {
 
 const mapRow = (row) => ({
   id: row[COLUMN_NAMES.id] || '',
-  entityType: row[COLUMN_NAMES.entityType] || '',
+  state: row[COLUMN_NAMES.state] || '',
   name: row[COLUMN_NAMES.name] || '',
-  category: row[COLUMN_NAMES.category] || '',
   organization: row[COLUMN_NAMES.organization] || '',
-  role: row[COLUMN_NAMES.role] || '',
-  influence: row[COLUMN_NAMES.influence] || 'Medium',
-  interest: row[COLUMN_NAMES.interest] || 'Medium',
-  position: row[COLUMN_NAMES.position] || 'Neutral',
-  strategy: row[COLUMN_NAMES.strategy] || '',
-  owner: row[COLUMN_NAMES.owner] || '',
-  lastInteraction: row[COLUMN_NAMES.lastInteraction] || '',
-  nextAction: row[COLUMN_NAMES.nextAction] || '',
-  priority: row[COLUMN_NAMES.priority] || 'Medium',
-  notes: row[COLUMN_NAMES.notes] || '',
-  sentiment: row[COLUMN_NAMES.sentiment] || 'Neutral',
-  relationshipWithProject: row[COLUMN_NAMES.relationshipWithProject] || '',
-  contactPerson: row[COLUMN_NAMES.contactPerson] || '',
+  designation: row[COLUMN_NAMES.designation] || '',
+  category: row[COLUMN_NAMES.category] || '', // Sector (org type like Regulatory Body, Public Utility)
+  mobile: row[COLUMN_NAMES.mobile] || '',
+  officeNo: row[COLUMN_NAMES.officeNo] || '',
   email: row[COLUMN_NAMES.email] || '',
-  phone: row[COLUMN_NAMES.phone] || '',
+  influence: row[COLUMN_NAMES.influence] || '',
+  interest: row[COLUMN_NAMES.interest] || '',
+  position: row[COLUMN_NAMES.position] || '',
+  sentiment: row[COLUMN_NAMES.sentiment] || '',
+  priority: row[COLUMN_NAMES.priority] || '',
+  relManager: row[COLUMN_NAMES.relManager] || '',
+  lastInteraction: row[COLUMN_NAMES.lastInteraction] || '',
+  nextActionDate: row[COLUMN_NAMES.nextActionDate] || '',
+  nextAction: row[COLUMN_NAMES.nextAction] || '',
+  notes: row[COLUMN_NAMES.notes] || '',
+  
+  // Derived/formatted fields for dashboard compatibility
+  phone: row[COLUMN_NAMES.mobile] || '', // Primary contact number
+  contact: [row[COLUMN_NAMES.mobile], row[COLUMN_NAMES.officeNo]].filter(Boolean).join(' / '), // Both phone numbers
+  entityType: 'Person', // Default to Person (can be enhanced in future)
+  strategy: '', // Not in new schema but may be needed
+  owner: row[COLUMN_NAMES.relManager] || '', // Map relManager to owner for compatibility
 });
 
-export const fetchStakeholders = async () => {
-  // Add cache-busting parameter to force fresh data
+// Fetch a single sheet by GID and parse it
+const fetchSheetByGid = async (gid) => {
   const baseUrl = GOOGLE_SHEET_CONFIG.getCsvUrl();
-  const csvUrl = baseUrl + '&t=' + Date.now();
-  const response = await fetch(csvUrl, { mode: 'cors' });
+  const csvUrl = `${baseUrl}&gid=${gid}&t=${Date.now()}`;
   
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  try {
+    const response = await fetch(csvUrl, { mode: 'cors' });
+    if (!response.ok) throw new Error(`Failed to fetch sheet GID ${gid}`);
+    
+    const csvText = await response.text();
+    const rows = parseCSV(csvText);
+    
+    // Debug: Check header names on first fetch
+    if (csvText && rows.length > 0) {
+      const lines = csvText.split('\n');
+      const headers = lines[0]; // Raw header line
+      if (gid === GOOGLE_SHEET_CONFIG.getAllStateGids()[0]) {
+        // Log headers only once (from first sheet)
+        console.log('📋 Sheet Headers:', headers);
+        console.log('🔍 Checking column mappings...');
+        Object.entries(COLUMN_NAMES).forEach(([key, expectedName]) => {
+          const found = headers.includes(expectedName);
+          if (!found) {
+            console.warn(`⚠️ Column missing: "${expectedName}" (mapped to "${key}")`);
+          }
+        });
+      }
+    }
+    
+    return rows.map(row => mapRow(row));
+  } catch (error) {
+    console.warn(`Could not fetch sheet GID ${gid}:`, error.message);
+    return [];
+  }
+};
+
+// Fetch ALL state sheets and combine them
+export const fetchStakeholders = async () => {
+  const sheetGids = GOOGLE_SHEET_CONFIG.getAllStateGids();
   
-  const csvText = await response.text();
-  const rows = parseCSV(csvText);
+  if (sheetGids.length === 0) {
+    throw new Error('No state sheets configured. Please add sheets to GOOGLE_SHEET_CONFIG.stateSheets');
+  }
   
-  return rows.map((row) => mapRow(row));
+  try {
+    // Fetch all sheets in parallel
+    const allSheetPromises = sheetGids.map(gid => 
+      fetchSheetByGid(gid).then(rows => rows.map(row => ({
+        ...row,
+        // Ensure state is set based on GID if not already in data
+        state: row.state || GOOGLE_SHEET_CONFIG.getStateFromGid(gid) || 'Unknown'
+      })))
+    );
+    
+    const allSheetResults = await Promise.all(allSheetPromises);
+    
+    // Combine all stakeholders from all sheets
+    const allStakeholders = allSheetResults.flat();
+    
+    if (allStakeholders.length === 0) {
+      throw new Error('No data found across all sheets');
+    }
+    
+    // Debug: Log sample data and counts
+    console.log(`✓ Loaded ${allStakeholders.length} total stakeholders from ${sheetGids.length} sheets`);
+    console.log(`  - National: ${allStakeholders.filter(s => s.state === 'National').length}`);
+    console.log(`  - RJ: ${allStakeholders.filter(s => s.state === 'RJ').length}`);
+    console.log(`  - MP: ${allStakeholders.filter(s => s.state === 'MP').length}`);
+    console.log(`  - Unknown state: ${allStakeholders.filter(s => s.state === 'Unknown').length}`);
+    
+    // Show sample of first 3 rows to inspect data quality
+    console.log('📊 Sample data (first 3 rows):', allStakeholders.slice(0, 3).map(s => ({
+      id: s.id,
+      name: s.name,
+      state: s.state,
+      organization: s.organization,
+      influence: s.influence,
+      interest: s.interest
+    })));
+    
+    return allStakeholders;
+  } catch (error) {
+    console.error('Error fetching stakeholders:', error);
+    throw error;
+  }
 };

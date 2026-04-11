@@ -54,14 +54,16 @@ export const THEMES = {
 // ========== COLOR PALETTES ==========
 
 export const categoryColors = {
-  Government: { dark: "#8ab4f8", light: "#1f71b8" },
-  Political: { dark: "#c58af9", light: "#7c3aed" },
-  "NGO/Civil Society": { dark: "#81c995", light: "#0b8043" },
-  Corporate: { dark: "#aecbfa", light: "#0051ba" },
-  Academic: { dark: "#fcc934", light: "#e37400" },
-  Media: { dark: "#f28482", light: "#d33b27" },
-  Community: { dark: "#f6afa8", light: "#c5221f" },
-  International: { dark: "#a8dadc", light: "#0d6e6e" },
+  "Government Ministry": { dark: "#8ab4f8", light: "#1f71b8" },
+  "Regulatory Body": { dark: "#c58af9", light: "#7c3aed" },
+  "Central Regulator": { dark: "#aecbfa", light: "#0051ba" },
+  "Public Utility": { dark: "#81c995", light: "#0b8043" },
+  "Grid Operator": { dark: "#fcc934", light: "#e37400" },
+  "Academia": { dark: "#a8dadc", light: "#0d6e6e" },
+  "Research & Advisory": { dark: "#c8e6c9", light: "#2e7d32" },
+  "Industry Association": { dark: "#f28482", light: "#d33b27" },
+  "Civil Society": { dark: "#f6afa8", light: "#c5221f" },
+  "Private Developer": { dark: "#b39ddb", light: "#512da8" },
 };
 
 export const levelColors = {

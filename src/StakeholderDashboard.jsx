@@ -8,6 +8,7 @@ export default function StakeholderDashboard() {
   
   const [data, setData] = useState([]);
   const [error, setError] = useState(null);
+  const [stateFilter, setStateFilter] = useState("all"); // Filter by state (Rajasthan, National, etc)
   const [filter, setFilter] = useState("all");
   const [sentimentFilter, setSentimentFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -200,8 +201,9 @@ export default function StakeholderDashboard() {
     else if (filter === "resistant") result = data.filter(s => s.position === "Resistant");
     else if (filter === "priority") result = data.filter(s => s.priority === "High" && s.nextAction);
     if (sentimentFilter !== "all") result = result.filter(s => s.sentiment === sentimentFilter);
+    if (stateFilter !== "all") result = result.filter(s => s.state === stateFilter);
     return result;
-  }, [data, filter, sentimentFilter]);
+  }, [data, filter, sentimentFilter, stateFilter]);
 
   const sortedData = useMemo(() => {
     const sorted = [...filteredData].sort((a, b) => {
@@ -379,46 +381,51 @@ export default function StakeholderDashboard() {
             <ResponsiveLayout>
               <Card>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                  <div><div style={labelStyle}>ENTITY TYPE</div><Badge label={searchResults.entityType} color={searchResults.entityType === "Person" ? theme.secondary : theme.info} /></div>
-                  <div><div style={labelStyle}>CATEGORY</div><Badge label={searchResults.category} color={getCatColor(searchResults.category)} /></div>
-                  <div><div style={labelStyle}>INFLUENCE</div><Badge label={searchResults.influence} color={getLvlColor(searchResults.influence)} /></div>
-                  <div><div style={labelStyle}>INTEREST</div><Badge label={searchResults.interest} color={getLvlColor(searchResults.interest)} /></div>
-                  <div><div style={labelStyle}>SENTIMENT</div><Badge label={searchResults.sentiment || "Neutral"} color={getSentColor(searchResults.sentiment || "Neutral")} /></div>
-                  <div><div style={labelStyle}>POSITION</div><Badge label={searchResults.position} color={getPosColor(searchResults.position)} /></div>
-                  <div><div style={labelStyle}>RELATIONSHIP</div><Badge label={searchResults.relationshipWithProject || "—"} color={getRelColor(searchResults.relationshipWithProject) || theme.textMuted} /></div>
-                  <div><div style={labelStyle}>PRIORITY</div><Badge label={searchResults.priority} color={getLvlColor(searchResults.priority)} /></div>
+                  <div><div style={labelStyle}>INFLUENCE</div><Badge label={searchResults.influence || "—"} color={getLvlColor(searchResults.influence || "Medium")} /></div>
+                  <div><div style={labelStyle}>INTEREST</div><Badge label={searchResults.interest || "—"} color={getLvlColor(searchResults.interest || "Medium")} /></div>
+                  <div><div style={labelStyle}>POSITION</div><Badge label={searchResults.position || "—"} color={getPosColor(searchResults.position || "Neutral")} /></div>
+                  <div><div style={labelStyle}>SENTIMENT</div><Badge label={searchResults.sentiment || "—"} color={getSentColor(searchResults.sentiment || "Neutral")} /></div>
+                  <div><div style={labelStyle}>STATE</div><div style={{ fontSize: 14, color: theme.text, fontWeight: 500 }}>{searchResults.state}</div></div>
+                  <div><div style={labelStyle}>PRIORITY</div><Badge label={searchResults.priority || "—"} color={getLvlColor(searchResults.priority || "Medium")} /></div>
                 </div>
               </Card>
               <Card>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 16 }}>
                   <div><div style={labelStyle}>ORGANIZATION</div><div style={{ fontSize: 14, color: theme.text, fontWeight: 500 }}>{searchResults.organization}</div></div>
-                  <div><div style={labelStyle}>ROLE</div><div style={{ fontSize: 14, color: theme.text, fontWeight: 500 }}>{searchResults.role}</div></div>
-                  <div><div style={labelStyle}>STRATEGY</div><div style={{ fontSize: 14, color: theme.text, fontWeight: 500 }}>{searchResults.strategy}</div></div>
-                  <div><div style={labelStyle}>OWNER</div><div style={{ fontSize: 14, color: theme.text, fontWeight: 500 }}>{searchResults.owner}</div></div>
+                  <div><div style={labelStyle}>DESIGNATION</div><div style={{ fontSize: 14, color: theme.text, fontWeight: 500 }}>{searchResults.designation}</div></div>
+                  <div><div style={labelStyle}>SECTOR</div><div style={{ fontSize: 14, color: theme.text, fontWeight: 500 }}>{searchResults.category}</div></div>
+                  <div><div style={labelStyle}>REL. MANAGER</div><div style={{ fontSize: 14, color: theme.text, fontWeight: 500 }}>{searchResults.relManager || "—"}</div></div>
                 </div>
               </Card>
             </ResponsiveLayout>
 
-            {(searchResults.contactPerson || searchResults.email || searchResults.phone) && (
+            {(searchResults.mobile || searchResults.email || searchResults.officeNo) && (
               <Card style={{ padding: 20, marginBottom: 20 }}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: theme.text, marginBottom: 16 }}>📱 Contact Information</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 16 }}>
-                  {searchResults.contactPerson && <div><div style={labelStyle}>CONTACT PERSON</div><div style={{ fontSize: 14, color: theme.text, fontWeight: 500 }}>{searchResults.contactPerson}</div></div>}
+                  {searchResults.mobile && <div><div style={labelStyle}>MOBILE</div><a href={`tel:${searchResults.mobile}`} style={{ fontSize: 14, color: theme.primary, textDecoration: "none", transition: "all 0.2s ease", cursor: "pointer", wordBreak: "break-all" }} onMouseEnter={(e) => { e.target.style.color = theme.primaryDark; e.target.style.textDecoration = "underline"; }} onMouseLeave={(e) => { e.target.style.color = theme.primary; e.target.style.textDecoration = "none"; }}>{searchResults.mobile}</a></div>}
+                  {searchResults.officeNo && <div><div style={labelStyle}>OFFICE NO.</div><a href={`tel:${searchResults.officeNo}`} style={{ fontSize: 14, color: theme.primary, textDecoration: "none", transition: "all 0.2s ease", cursor: "pointer", wordBreak: "break-all" }} onMouseEnter={(e) => { e.target.style.color = theme.primaryDark; e.target.style.textDecoration = "underline"; }} onMouseLeave={(e) => { e.target.style.color = theme.primary; e.target.style.textDecoration = "none"; }}>{searchResults.officeNo}</a></div>}
                   {searchResults.email && <div><div style={labelStyle}>EMAIL</div><a href={`mailto:${searchResults.email}`} style={{ fontSize: 14, color: theme.primary, textDecoration: "none", transition: "all 0.2s ease", cursor: "pointer" }} onMouseEnter={(e) => { e.target.style.color = theme.primaryDark; e.target.style.textDecoration = "underline"; }} onMouseLeave={(e) => { e.target.style.color = theme.primary; e.target.style.textDecoration = "none"; }}>{searchResults.email}</a></div>}
-                  {searchResults.phone && <div><div style={labelStyle}>PHONE</div><a href={`tel:${searchResults.phone}`} style={{ fontSize: 14, color: theme.primary, textDecoration: "none", transition: "all 0.2s ease", cursor: "pointer", wordBreak: "break-all" }} onMouseEnter={(e) => { e.target.style.color = theme.primaryDark; e.target.style.textDecoration = "underline"; }} onMouseLeave={(e) => { e.target.style.color = theme.primary; e.target.style.textDecoration = "none"; }}>{searchResults.phone}</a></div>}
                 </div>
               </Card>
             )}
 
             <Card style={{ padding: 20 }}>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 20 }}>
-                <div><div style={labelStyle}>LAST INTERACTION</div><div style={{ fontSize: 14, color: theme.text, fontWeight: 600 }}>{searchResults.lastInteraction || "—"}</div></div>
-                <div><div style={labelStyle}>NEXT ACTION</div><div style={{ fontSize: 14, color: theme.text, fontWeight: 600 }}>{searchResults.nextAction || "—"}</div></div>
-                <div><div style={labelStyle}>ENGAGEMENT STRATEGY</div><div style={{ fontSize: 14, color: theme.text, fontWeight: 600 }}>{searchResults.strategy || "—"}</div></div>
+                <div><div style={labelStyle}>DESIGNATION</div><div style={{ fontSize: 14, color: theme.text, fontWeight: 600 }}>{searchResults.designation || "—"}</div></div>
+                <div><div style={labelStyle}>SECTOR</div><div style={{ fontSize: 14, color: theme.text, fontWeight: 600 }}>{searchResults.category || "—"}</div></div>
+                <div><div style={labelStyle}>REL. MANAGER</div><div style={{ fontSize: 14, color: theme.text, fontWeight: 600 }}>{searchResults.relManager || "—"}</div></div>
+              </div>
+              <div style={dividerStyle}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16 }}>
+                  <div><div style={labelStyle}>LAST INTERACTION</div><div style={{ fontSize: 14, color: theme.text, fontWeight: 600 }}>{searchResults.lastInteraction || "—"}</div></div>
+                  <div><div style={labelStyle}>NEXT ACTION DATE</div><div style={{ fontSize: 14, color: theme.text, fontWeight: 600 }}>{searchResults.nextActionDate || "—"}</div></div>
+                  <div><div style={labelStyle}>NEXT ACTION</div><div style={{ fontSize: 14, color: theme.text, fontWeight: 600 }}>{searchResults.nextAction || "—"}</div></div>
+                </div>
               </div>
               {searchResults.notes && (
                 <div style={dividerStyle}>
-                  <div style={labelStyle}>NOTES</div>
+                  <div style={labelStyle}>NOTES & INTERACTION LOG</div>
                   <div style={{ fontSize: 13, color: theme.text, lineHeight: 1.6 }}>{searchResults.notes}</div>
                 </div>
               )}
@@ -492,6 +499,17 @@ export default function StakeholderDashboard() {
                 <div style={{ fontSize: 12, fontWeight: 600, color: theme.textMuted, marginBottom: 8 }}>SENTIMENT FILTER</div>
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                   {[{ id: "all", label: `All` }, { id: "Positive", label: `🟢 Positive (${data.filter(s => s.sentiment === "Positive").length})` }, { id: "Neutral", label: `🟡 Neutral (${data.filter(s => s.sentiment === "Neutral").length})` }, { id: "Negative", label: `🔴 Negative (${data.filter(s => s.sentiment === "Negative").length})` }].map(btn => <button key={btn.id} onClick={() => setSentimentFilter(btn.id)} style={buttonStyle(sentimentFilter === btn.id)}>{btn.label}</button>)}
+                </div>
+              </div>
+              <div style={{ marginTop: 16 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: theme.textMuted, marginBottom: 8 }}>STATE FILTER</div>
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                  {[
+                    { id: "all", label: `All (${data.length})` },
+                    { id: "National", label: `🏛️ National (${data.filter(s => s.state === "National").length})` },
+                    { id: "RJ", label: `🏜️ Rajasthan (${data.filter(s => s.state === "RJ").length})` },
+                    { id: "MP", label: `🌾 Madhya Pradesh (${data.filter(s => s.state === "MP").length})` }
+                  ].map(btn => <button key={btn.id} onClick={() => setStateFilter(btn.id)} style={buttonStyle(stateFilter === btn.id)}>{btn.label}</button>)}
                 </div>
               </div>
             </div>
