@@ -64,18 +64,13 @@ const mapRow = (row, rowIndex) => {
   
   // Debug: Log first row to see what's in it
   if (rowIndex === 0) {
-    console.log(`  Row object keys: ${Object.keys(row)}`);
-    console.log(`  Row values for mapping:`, {
-      rawIDColumnName: COLUMN_NAMES.id,
-      rawIDValue: row[COLUMN_NAMES.id],
-      rawStateColumnName: COLUMN_NAMES.state,
-      rawStateValue: row[COLUMN_NAMES.state],
-      rawNameColumnName: COLUMN_NAMES.name,
-      rawNameValue: row[COLUMN_NAMES.name],
-      rawOrgColumnName: COLUMN_NAMES.organization,
-      rawOrgValue: row[COLUMN_NAMES.organization]
-    });
-    console.log(`  Full row object:`, row);
+    console.log(`  ✓ Row 0 mapping check:`);
+    console.log(`    ID ("${COLUMN_NAMES.id}"): "${row[COLUMN_NAMES.id]}"`);
+    console.log(`    State ("${COLUMN_NAMES.state}"): "${row[COLUMN_NAMES.state]}"`);
+    console.log(`    Name ("${COLUMN_NAMES.name}"): "${row[COLUMN_NAMES.name]}"`);
+    console.log(`    Organisation ("${COLUMN_NAMES.organization}"): "${row[COLUMN_NAMES.organization]}"`);
+    console.log(`    Sector ("${COLUMN_NAMES.category}"): "${row[COLUMN_NAMES.category]}"`);
+    console.log(`  Full row keys:`, Object.keys(row));
   }
   
   return {

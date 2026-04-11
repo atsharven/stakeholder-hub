@@ -263,8 +263,7 @@ export default function StakeholderDashboard() {
     ];
   }, [filteredData, isDark]);
 
-  const risks = useMemo(() => filteredData.filter(s => s.influence === "High" && s.interest === "Low"), [filteredData]);
-  const allies = useMemo(() => filteredData.filter(s => s.influence === "Medium" && s.interest === "High"), [filteredData]);
+
 
   const engagementScores = useMemo(() => {
     const result = filteredData.reduce((acc, s) => {
@@ -506,8 +505,13 @@ export default function StakeholderDashboard() {
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                   {(() => {
                     // Get unique states from data (dynamically extracted)
-                    const uniqueStates = [...new Set(data.map(s => s.state).filter(Boolean))].sort();
+                    const stateValues = data.map(s => s.state);
+                    console.log('State values sample:', stateValues.slice(0, 10));
+                    
+                    const uniqueStates = [...new Set(stateValues.filter(s => s && typeof s === 'string'))].sort();
                     const unassignedCount = data.filter(s => !s.state || s.state === "Unknown").length;
+                    
+                    console.log('Unique states found:', uniqueStates);
                     
                     return [
                       { id: "all", label: `All` },
@@ -550,11 +554,7 @@ export default function StakeholderDashboard() {
               <Card><div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 20 }}>📁 Categories</div>{categoryBreakdown.map(item => <ProgressBar key={item.name} label={item.name} value={item.value} total={stats.total} color={getCatColor(item.name)} />)}</Card>
             </ResponsiveLayout>
 
-            {/* RISK & ALLIES */}
-            <ResponsiveLayout>
-              <Card style={{ cursor: "pointer" }} onClick={() => risks[0] && handleSearch(risks[0].name)} hoverable><div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 16 }}>⚠️ Risks</div><div style={{ fontSize: 36, fontWeight: 800, color: theme.danger, marginBottom: 8 }}>{risks.length}</div><div style={{ fontSize: 13, color: theme.textMuted, marginBottom: 16 }}>{risks.length > 0 ? "Click to view details" : "No risks found"}</div>{risks.length > 0 && <div style={{ fontSize: 12, paddingTop: 12, borderTop: `1px solid ${theme.divider}` }}>{risks.slice(0, 3).map(s => <div key={s.id} style={{ color: theme.text, marginBottom: 6, cursor: "pointer", padding: 6, borderRadius: 4, background: theme.surface }} onClick={(e) => { e.stopPropagation(); handleSearch(s.name); }} onMouseEnter={(e) => e.currentTarget.style.background = theme.hover} onMouseLeave={(e) => e.currentTarget.style.background = theme.surface}>→ {s.name}</div>)}</div>}</Card>
-              <Card style={{ cursor: "pointer" }} onClick={() => allies[0] && handleSearch(allies[0].name)} hoverable><div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginBottom: 16 }}>🤝 Allies</div><div style={{ fontSize: 36, fontWeight: 800, color: theme.success, marginBottom: 8 }}>{allies.length}</div><div style={{ fontSize: 13, color: theme.textMuted, marginBottom: 16 }}>{allies.length > 0 ? "Click to view details" : "No allies found"}</div>{allies.length > 0 && <div style={{ fontSize: 12, paddingTop: 12, borderTop: `1px solid ${theme.divider}` }}>{allies.slice(0, 3).map(s => <div key={s.id} style={{ color: theme.text, marginBottom: 6, cursor: "pointer", padding: 6, borderRadius: 4, background: theme.surface }} onClick={(e) => { e.stopPropagation(); handleSearch(s.name); }} onMouseEnter={(e) => e.currentTarget.style.background = theme.hover} onMouseLeave={(e) => e.currentTarget.style.background = theme.surface}>→ {s.name}</div>)}</div>}</Card>
-            </ResponsiveLayout>
+
 
 
           </>
