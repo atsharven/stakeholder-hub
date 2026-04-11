@@ -37,6 +37,7 @@ const parseCSV = (csvText) => {
   
   const headers = parseCSVLine(lines[0]);
   const rows = [];
+  let skipped = 0;
   
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i];
@@ -46,9 +47,18 @@ const parseCSV = (csvText) => {
     const row = {};
     headers.forEach((h, idx) => row[h] = cells[idx] || '');
     
-    // Only add if has at least one non-empty value
+    // Validation: Skip rows with empty ID (primary key)
+    const id = row[COLUMN_NAMES.id]?.trim();
+    if (!id) {
+      skipped++;
+      continue;
+    }
+    
+    // Only add if has at least one non-empty value (already has valid ID)
     if (Object.values(row).some(v => v && v.trim())) rows.push(row);
   }
+  
+  if (skipped > 0) console.log(`  ⚠ Skipped ${skipped} rows with missing ID`);
   
   return rows;
 };
@@ -58,9 +68,16 @@ const mapRow = (row, rowIndex, sheetState) => {
   // State value from sheet is used for validation, but we use configured state name
   const stateValue = row[COLUMN_NAMES.state] || '';
   
+  // Sanitize state: if it's not a valid configured state name, use the configured state
+  const validStates = GOOGLE_SHEET_CONFIG.getAllStateNames();
+  const isMalformed = !stateValue || stateValue.includes(',') || stateValue.length > 50;
+  const finalState = (stateValue && validStates.includes(stateValue) && !isMalformed) 
+    ? stateValue 
+    : (sheetState || 'Unknown');
+  
   return {
     id: row[COLUMN_NAMES.id] || '',
-    state: sheetState || stateValue || 'Unknown', // Use configured state name, fallback to sheet value
+    state: finalState,
     name: row[COLUMN_NAMES.name] || '',
     organization: row[COLUMN_NAMES.organization] || '',
     designation: row[COLUMN_NAMES.designation] || '',
@@ -97,17 +114,18 @@ const fetchSheetByGid = async (gid) => {
   const configuredState = GOOGLE_SHEET_CONFIG.getStateFromGid(gid);
   
   try {
+    console.log(`▶ Fetching ${configuredState} sheet (GID: ${gid})...`);
     const response = await fetch(csvUrl, { mode: 'cors' });
     if (!response.ok) throw new Error(`Failed to fetch sheet GID ${gid}`);
     
     const csvText = await response.text();
     const rows = parseCSV(csvText);
     
-    console.log(`📋 Loaded sheet for ${configuredState} (${rows.length} rows)`);
+    console.log(`✓ ${configuredState}: Parsed ${rows.length} valid records`);
     
     return rows.map((row, idx) => mapRow(row, idx, configuredState));
   } catch (error) {
-    console.error(`Sheet fetch error (GID ${gid}):`, error.message);
+    console.error(`✗ ${configuredState} fetch error:`, error.message);
     return [];
   }
 };
@@ -121,6 +139,9 @@ export const fetchStakeholders = async () => {
   }
   
   try {
+    console.log(`=== STAKEHOLDER DATA LOAD ===`);
+    console.log(`Loading ${sheetGids.length} state sheet(s)...`);
+    
     // Fetch all sheets in parallel
     const allSheetPromises = sheetGids.map(gid => fetchSheetByGid(gid));
     
@@ -133,11 +154,12 @@ export const fetchStakeholders = async () => {
       throw new Error('No data found across all sheets');
     }
     
-    // Log summary
-    console.log(`✓ Loaded ${allStakeholders.length} stakeholders from ${sheetGids.length} sheets`);
+    // Log summary with state breakdown
+    console.log(`\n✅ Load Complete:`);
+    console.log(`  Total: ${allStakeholders.length} stakeholders`);
     GOOGLE_SHEET_CONFIG.getAllStateNames().forEach(state => {
       const count = allStakeholders.filter(s => s.state === state).length;
-      if (count > 0) console.log(`  ${state}: ${count}`);
+      console.log(`  • ${state}: ${count}`);
     });
     
     return allStakeholders;
