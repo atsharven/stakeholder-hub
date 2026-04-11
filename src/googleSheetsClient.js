@@ -1,39 +1,39 @@
 import { GOOGLE_SHEET_CONFIG, COLUMN_NAMES } from './config'
 
+// CSV line parser - handles quoted fields with commas
+const parseCSVLine = (line) => {
+  const cells = [];
+  let current = '';
+  let insideQuotes = false;
+  
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    const nextChar = line[i + 1];
+    
+    if (char === '"') {
+      if (insideQuotes && nextChar === '"') {
+        // Escaped quote
+        current += '"';
+        i++;
+      } else {
+        // Toggle quote state
+        insideQuotes = !insideQuotes;
+      }
+    } else if (char === ',' && !insideQuotes) {
+      // Field separator
+      cells.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  cells.push(current.trim());
+  return cells;
+};
+
 const parseCSV = (csvText) => {
   const lines = csvText.split('\n');
   if (lines.length < 2) throw new Error('Empty data');
-  
-  // Proper CSV parser that handles quoted fields with commas/newlines
-  const parseCSVLine = (line) => {
-    const cells = [];
-    let current = '';
-    let insideQuotes = false;
-    
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i];
-      const nextChar = line[i + 1];
-      
-      if (char === '"') {
-        if (insideQuotes && nextChar === '"') {
-          // Escaped quote
-          current += '"';
-          i++;
-        } else {
-          // Toggle quote state
-          insideQuotes = !insideQuotes;
-        }
-      } else if (char === ',' && !insideQuotes) {
-        // Field separator
-        cells.push(current.trim());
-        current = '';
-      } else {
-        current += char;
-      }
-    }
-    cells.push(current.trim());
-    return cells;
-  };
   
   const headers = parseCSVLine(lines[0]);
   const rows = [];
@@ -50,37 +50,63 @@ const parseCSV = (csvText) => {
     if (Object.values(row).some(v => v && v.trim())) rows.push(row);
   }
   
+  // Debug: Show parsing stats
+  console.log(`  ✓ Parsed ${rows.length} data rows (${lines.length - 1} total lines)`);
+  console.log(`  Cells in first row: ${parseCSVLine(lines[1]).length}`);
+  
   return rows;
 };
 
-const mapRow = (row) => ({
-  id: row[COLUMN_NAMES.id] || '',
-  state: row[COLUMN_NAMES.state] || '',
-  name: row[COLUMN_NAMES.name] || '',
-  organization: row[COLUMN_NAMES.organization] || '',
-  designation: row[COLUMN_NAMES.designation] || '',
-  category: row[COLUMN_NAMES.category] || '', // Sector (org type like Regulatory Body, Public Utility)
-  mobile: row[COLUMN_NAMES.mobile] || '',
-  officeNo: row[COLUMN_NAMES.officeNo] || '',
-  email: row[COLUMN_NAMES.email] || '',
-  influence: row[COLUMN_NAMES.influence] || '',
-  interest: row[COLUMN_NAMES.interest] || '',
-  position: row[COLUMN_NAMES.position] || '',
-  sentiment: row[COLUMN_NAMES.sentiment] || '',
-  priority: row[COLUMN_NAMES.priority] || '',
-  relManager: row[COLUMN_NAMES.relManager] || '',
-  lastInteraction: row[COLUMN_NAMES.lastInteraction] || '',
-  nextActionDate: row[COLUMN_NAMES.nextActionDate] || '',
-  nextAction: row[COLUMN_NAMES.nextAction] || '',
-  notes: row[COLUMN_NAMES.notes] || '',
+const mapRow = (row, rowIndex) => {
+  // Normalize state name from sheet to state code
+  const rawState = row[COLUMN_NAMES.state] || '';
+  const normalizedState = GOOGLE_SHEET_CONFIG.normalizeStateName(rawState);
   
-  // Derived/formatted fields for dashboard compatibility
-  phone: row[COLUMN_NAMES.mobile] || '', // Primary contact number
-  contact: [row[COLUMN_NAMES.mobile], row[COLUMN_NAMES.officeNo]].filter(Boolean).join(' / '), // Both phone numbers
-  entityType: 'Person', // Default to Person (can be enhanced in future)
-  strategy: '', // Not in new schema but may be needed
-  owner: row[COLUMN_NAMES.relManager] || '', // Map relManager to owner for compatibility
-});
+  // Debug: Log first row to see what's in it
+  if (rowIndex === 0) {
+    console.log(`  Row object keys: ${Object.keys(row)}`);
+    console.log(`  Row values for mapping:`, {
+      rawIDColumnName: COLUMN_NAMES.id,
+      rawIDValue: row[COLUMN_NAMES.id],
+      rawStateColumnName: COLUMN_NAMES.state,
+      rawStateValue: row[COLUMN_NAMES.state],
+      rawNameColumnName: COLUMN_NAMES.name,
+      rawNameValue: row[COLUMN_NAMES.name],
+      rawOrgColumnName: COLUMN_NAMES.organization,
+      rawOrgValue: row[COLUMN_NAMES.organization]
+    });
+    console.log(`  Full row object:`, row);
+  }
+  
+  return {
+    id: row[COLUMN_NAMES.id] || '',
+    state: normalizedState, // Use normalized state code (e.g., "RJ" not "Rajasthan")
+    name: row[COLUMN_NAMES.name] || '',
+    organization: row[COLUMN_NAMES.organization] || '',
+    designation: row[COLUMN_NAMES.designation] || '',
+    category: row[COLUMN_NAMES.category] || '', // Sector (org type like Regulatory Body, Public Utility)
+    mobile: row[COLUMN_NAMES.mobile] || '',
+    officeNo: row[COLUMN_NAMES.officeNo] || '',
+    email: row[COLUMN_NAMES.email] || '',
+    influence: row[COLUMN_NAMES.influence] || '',
+    interest: row[COLUMN_NAMES.interest] || '',
+    position: row[COLUMN_NAMES.position] || '',
+    sentiment: row[COLUMN_NAMES.sentiment] || '',
+    priority: row[COLUMN_NAMES.priority] || '',
+    relManager: row[COLUMN_NAMES.relManager] || '',
+    lastInteraction: row[COLUMN_NAMES.lastInteraction] || '',
+    nextActionDate: row[COLUMN_NAMES.nextActionDate] || '',
+    nextAction: row[COLUMN_NAMES.nextAction] || '',
+    notes: row[COLUMN_NAMES.notes] || '',
+    
+    // Derived/formatted fields for dashboard compatibility
+    phone: row[COLUMN_NAMES.mobile] || '', // Primary contact number
+    contact: [row[COLUMN_NAMES.mobile], row[COLUMN_NAMES.officeNo]].filter(Boolean).join(' / '), // Both phone numbers
+    entityType: 'Person', // Default to Person (can be enhanced in future)
+    strategy: '', // Not in new schema but may be needed
+    owner: row[COLUMN_NAMES.relManager] || '', // Map relManager to owner for compatibility
+  };
+};
 
 // Fetch a single sheet by GID and parse it
 const fetchSheetByGid = async (gid) => {
@@ -94,24 +120,38 @@ const fetchSheetByGid = async (gid) => {
     const csvText = await response.text();
     const rows = parseCSV(csvText);
     
-    // Debug: Check header names on first fetch
+    // Debug: Check header names and show actual data structure
     if (csvText && rows.length > 0) {
       const lines = csvText.split('\n');
-      const headers = lines[0]; // Raw header line
-      if (gid === GOOGLE_SHEET_CONFIG.getAllStateGids()[0]) {
-        // Log headers only once (from first sheet)
-        console.log('📋 Sheet Headers:', headers);
-        console.log('🔍 Checking column mappings...');
-        Object.entries(COLUMN_NAMES).forEach(([key, expectedName]) => {
-          const found = headers.includes(expectedName);
-          if (!found) {
-            console.warn(`⚠️ Column missing: "${expectedName}" (mapped to "${key}")`);
-          }
+      const headerLine = lines[0];
+      const headerArray = parseCSVLine(headerLine);
+      
+      const stateCode = GOOGLE_SHEET_CONFIG.getStateFromGid(gid);
+      console.log(`\n📋 Sheet Headers for ${stateCode} (GID: ${gid}):`);
+      console.log('Headers:', headerArray);
+      console.log('Header count:', headerArray.length);
+      
+      // Show column indices with actual headers
+      headerArray.forEach((header, idx) => {
+        console.log(`  [${idx}] "${header}"`);
+      });
+      
+      // Show first row of actual data
+      if (rows.length > 0) {
+        const firstRow = rows[0];
+        console.log(`\n🔍 Sample data from ${stateCode}:`);
+        console.log('First row keys:', Object.keys(firstRow));
+        console.log('First row values:', {
+          id: firstRow.id,
+          state: firstRow.state,
+          name: firstRow.name,
+          organization: firstRow.organization,
+          category: firstRow.category
         });
       }
     }
     
-    return rows.map(row => mapRow(row));
+    return rows.map((row, idx) => mapRow(row, idx));
   } catch (error) {
     console.warn(`Could not fetch sheet GID ${gid}:`, error.message);
     return [];

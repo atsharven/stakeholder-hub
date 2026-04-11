@@ -1,13 +1,22 @@
 export const GOOGLE_SHEET_CONFIG = {
   sheetId: "1JceTKVypT7p5KzUfL4NpoeuJoGp_s4k48Rj1qEL9ARI",
   
-  // Sheet GIDs and their corresponding states
-  // These are discovered automatically, but here for reference:
+  // Sheet GIDs and their corresponding states (state codes)
   stateSheets: {
     "National": 1749540502,
     "RJ": 909767070,
     "MP": 1699599823,
-    // "Other State Name": gidNumber, // Add new states here as they're created
+    // "State Code": gidNumber, // Add new states here as they're created
+  },
+  
+  // Map state names (from Google Sheet) to state codes (for internal use)
+  // If your sheet says "Rajasthan", we normalize it to "RJ"
+  stateNameMap: {
+    "National": "National",
+    "Rajasthan": "RJ",
+    "Madhya Pradesh": "MP",
+    "RJ": "RJ", // Accept code too
+    "MP": "MP",
   },
   
   getCsvUrl() { 
@@ -19,12 +28,23 @@ export const GOOGLE_SHEET_CONFIG = {
     return Object.values(this.stateSheets);
   },
   
-  // Helper: Get state from GID
+  // Helper: Get state code from GID
   getStateFromGid(gid) {
     for (const [state, stateGid] of Object.entries(this.stateSheets)) {
       if (stateGid === gid) return state;
     }
     return null;
+  },
+  
+  // Helper: Normalize state name from sheet to state code
+  normalizeStateName(stateName) {
+    const trimmed = (stateName || '').trim();
+    return this.stateNameMap[trimmed] || trimmed || 'Unknown';
+  },
+  
+  // Get all unique state codes from config
+  getAllStateCodes() {
+    return Object.keys(this.stateSheets);
   }
 };
 

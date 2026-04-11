@@ -201,7 +201,13 @@ export default function StakeholderDashboard() {
     else if (filter === "resistant") result = data.filter(s => s.position === "Resistant");
     else if (filter === "priority") result = data.filter(s => s.priority === "High" && s.nextAction);
     if (sentimentFilter !== "all") result = result.filter(s => s.sentiment === sentimentFilter);
-    if (stateFilter !== "all") result = result.filter(s => s.state === stateFilter);
+    if (stateFilter !== "all") {
+      if (stateFilter === "unknown") {
+        result = result.filter(s => !s.state || s.state === "Unknown");
+      } else {
+        result = result.filter(s => s.state === stateFilter);
+      }
+    }
     return result;
   }, [data, filter, sentimentFilter, stateFilter]);
 
@@ -489,27 +495,31 @@ export default function StakeholderDashboard() {
           <>
             {/* FILTERS */}
             <div style={{ marginBottom: 40 }}>
-              <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: theme.textMuted, marginBottom: 8 }}>CATEGORY FILTER</div>
-                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                  {[{ id: "all", label: `All (${data.length})` }, { id: "influencers", label: `High Influence (${data.filter(s => s.influence === "High" && s.interest === "High").length})` }, { id: "resistant", label: `Resistant (${data.filter(s => s.position === "Resistant").length})` }, { id: "priority", label: `Priority (${data.filter(s => s.priority === "High" && s.nextAction).length})` }].map(btn => <button key={btn.id} onClick={() => setFilter(btn.id)} style={buttonStyle(filter === btn.id)}>{btn.label}</button>)}
-                </div>
-              </div>
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: theme.textMuted, marginBottom: 8 }}>SENTIMENT FILTER</div>
-                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                  {[{ id: "all", label: `All` }, { id: "Positive", label: `🟢 Positive (${data.filter(s => s.sentiment === "Positive").length})` }, { id: "Neutral", label: `🟡 Neutral (${data.filter(s => s.sentiment === "Neutral").length})` }, { id: "Negative", label: `🔴 Negative (${data.filter(s => s.sentiment === "Negative").length})` }].map(btn => <button key={btn.id} onClick={() => setSentimentFilter(btn.id)} style={buttonStyle(sentimentFilter === btn.id)}>{btn.label}</button>)}
-                </div>
-              </div>
               <div style={{ marginTop: 16 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: theme.textMuted, marginBottom: 8 }}>STATE FILTER</div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: theme.textMuted, marginBottom: 8 }}>STATE</div>
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                  {[
-                    { id: "all", label: `All (${data.length})` },
-                    { id: "National", label: `🏛️ National (${data.filter(s => s.state === "National").length})` },
-                    { id: "RJ", label: `🏜️ Rajasthan (${data.filter(s => s.state === "RJ").length})` },
-                    { id: "MP", label: `🌾 Madhya Pradesh (${data.filter(s => s.state === "MP").length})` }
-                  ].map(btn => <button key={btn.id} onClick={() => setStateFilter(btn.id)} style={buttonStyle(stateFilter === btn.id)}>{btn.label}</button>)}
+                  {(() => {
+                    // Get unique states from data (dynamically extracted)
+                    const uniqueStates = [...new Set(data.map(s => s.state).filter(Boolean))].sort();
+                    const unassignedCount = data.filter(s => !s.state || s.state === "Unknown").length;
+                    
+                    return [
+                      { id: "all", label: `All` },
+                      ...uniqueStates.map(state => ({
+                        id: state,
+                        label: `${state} (${data.filter(s => s.state === state).length})`
+                      })),
+                      ...(unassignedCount > 0 ? [{ id: "unknown", label: `Unassigned (${unassignedCount})` }] : [])
+                    ].map(btn => (
+                      <button 
+                        key={btn.id} 
+                        onClick={() => setStateFilter(btn.id)} 
+                        style={buttonStyle(stateFilter === btn.id || (btn.id === "unknown" && stateFilter === "unknown"))}
+                      >
+                        {btn.label}
+                      </button>
+                    ));
+                  })()}
                 </div>
               </div>
             </div>
