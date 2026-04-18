@@ -76,9 +76,3 @@ export const sentimentColors = {
   Neutral: { dark: "#80868b", light: "#5f6368" },
   Negative: { dark: "#f28482", light: "#d33b27" },
 };
-
-export const relationshipColors = {
-  Involved: { dark: "#8ab4f8", light: "#1f71b8" },
-  Affected: { dark: "#fcc934", light: "#e37400" },
-  Interested: { dark: "#81c995", light: "#0b8043" },
-};

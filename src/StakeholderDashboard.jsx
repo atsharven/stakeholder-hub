@@ -1,10 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  ArrowUpRight,
   BarChart3,
   ChevronDown,
   ChevronUp,
-  Copy,
   LogOut,
   Mail,
   Moon,
@@ -113,7 +111,7 @@ export default function StakeholderDashboard() {
   const [stateFilter, setStateFilter] = useState("all");
   const [sectorFilter, setSectorFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
-  const [positionFilter, setPositionFilter] = useState("all");
+
   const [selectedId, setSelectedId] = useState(null);
   const [copyStatus, setCopyStatus] = useState("");
   const [highlightedIndex, setHighlightedIndex] = useState(0);
@@ -253,7 +251,6 @@ export default function StakeholderDashboard() {
       .filter((item) => stateFilter === "all" || item.state === stateFilter)
       .filter((item) => sectorFilter === "all" || item.category === sectorFilter)
       .filter((item) => priorityFilter === "all" || item.priority === priorityFilter)
-      .filter((item) => positionFilter === "all" || item.position === positionFilter)
       .filter((item) => {
         if (!query) return true;
 
@@ -275,7 +272,7 @@ export default function StakeholderDashboard() {
         if (aPriority !== bPriority) return aPriority - bPriority;
         return (a.name || "").localeCompare(b.name || "");
       });
-  }, [data, positionFilter, priorityFilter, searchQuery, sectorFilter, stateFilter]);
+  }, [data, priorityFilter, searchQuery, sectorFilter, stateFilter]);
 
   useEffect(() => {
     if (filteredStakeholders.length === 0) {
@@ -293,7 +290,7 @@ export default function StakeholderDashboard() {
 
   useEffect(() => {
     setHighlightedIndex(0);
-  }, [searchQuery, stateFilter, sectorFilter, priorityFilter, positionFilter]);
+  }, [searchQuery, stateFilter, sectorFilter, priorityFilter]);
 
   const selectedStakeholder = useMemo(
     () => filteredStakeholders.find((item) => item.id === selectedId) || null,
@@ -542,6 +539,16 @@ export default function StakeholderDashboard() {
           color: theme.text,
           padding: "0 14px",
           fontSize: 14,
+          transition: "all 0.2s ease",
+          cursor: "pointer",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.borderColor = theme.primary;
+          e.currentTarget.style.boxShadow = `0 0 0 2px ${theme.primary}20`;
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.borderColor = theme.border;
+          e.currentTarget.style.boxShadow = "none";
         }}
       >
         {options.map((option) => (
@@ -593,6 +600,15 @@ export default function StakeholderDashboard() {
         alignItems: "center",
         gap: 8,
         cursor: "pointer",
+        transition: "all 0.2s ease",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = "translateY(-2px)";
+        e.currentTarget.style.boxShadow = `0 4px 12px ${isDark ? "rgba(0,0,0,0.2)" : "rgba(15,23,42,0.08)"}`;
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = "translateY(0)";
+        e.currentTarget.style.boxShadow = "none";
       }}
     >
       {icon}
@@ -732,7 +748,7 @@ export default function StakeholderDashboard() {
     </div>
   );
 
-  const UtilityButton = ({ onClick, children, title }) => (
+  const UtilityButton = ({ onClick, children, title, isLoading }) => (
     <button
       onClick={onClick}
       title={title}
@@ -747,9 +763,27 @@ export default function StakeholderDashboard() {
         placeItems: "center",
         cursor: "pointer",
         backdropFilter: "blur(10px)",
+        transition: "all 0.3s ease",
+        transform: isLoading ? "scale(0.95)" : "scale(1)",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.88)";
+        e.currentTarget.style.transform = isLoading ? "scale(0.95)" : "scale(1.05)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.82)";
+        e.currentTarget.style.transform = isLoading ? "scale(0.95)" : "scale(1)";
       }}
     >
-      {children}
+      <span
+        style={{
+          display: "inline-block",
+          animation: isLoading ? "spin 1.5s linear infinite" : "none",
+          transformOrigin: "center",
+        }}
+      >
+        {children}
+      </span>
     </button>
   );
 
@@ -796,16 +830,228 @@ export default function StakeholderDashboard() {
 
     if (!loginForm.name.trim()) return;
 
-    setSession({
+    const newSession = {
       name: loginForm.name.trim(),
       phone: loginForm.phone.trim(),
       email: loginForm.email.trim().toLowerCase(),
       loginAt: new Date().toISOString(),
-    });
+      loginMethod: "manual",
+    };
+    
+    setSession(newSession);
+    setLoginForm({ name: "", phone: "", email: "" });
+  };
+
+  const handleSocialLogin = (method, name) => {
+    const newSession = {
+      name: name || loginForm.name.trim() || `${method} User`,
+      phone: "",
+      email: "",
+      loginAt: new Date().toISOString(),
+      loginMethod: method,
+    };
+    
+    setSession(newSession);
+    setLoginForm({ name: "", phone: "", email: "" });
   };
 
   const handleLogout = () => {
     setSession(null);
+    setLoginForm({ name: "", phone: "", email: "" });
+  };
+
+  const ContactModal = ({ stakeholder, onClose }) => {
+    if (!stakeholder) return null;
+
+    return (
+      <>
+        <div
+          onClick={onClose}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.4)",
+            backdropFilter: "blur(6px)",
+            zIndex: 998,
+            animation: "fadeIn 0.3s ease",
+          }}
+        />
+        <div
+          style={{
+            position: "fixed",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            background: theme.card,
+            border: `1px solid ${theme.border}`,
+            borderRadius: 28,
+            padding: 32,
+            maxWidth: "min(100%, 600px)",
+            maxHeight: "90vh",
+            overflowY: "auto",
+            zIndex: 999,
+            boxShadow: isDark
+              ? "0 25px 50px rgba(0,0,0,0.4)"
+              : "0 25px 50px rgba(15,23,42,0.15)",
+            animation: "slideUp 0.4s ease",
+            display: "grid",
+            gap: 24,
+          }}
+        >
+          <button
+            onClick={onClose}
+            style={{
+              position: "absolute",
+              top: 16,
+              right: 16,
+              height: 32,
+              width: 32,
+              borderRadius: 999,
+              border: `1px solid ${theme.border}`,
+              background: theme.surface,
+              color: theme.text,
+              cursor: "pointer",
+              display: "grid",
+              placeItems: "center",
+              transition: "all 0.2s ease",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.8)";
+              e.currentTarget.style.transform = "scale(1.1)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = theme.surface;
+              e.currentTarget.style.transform = "scale(1)";
+            }}
+          >
+            ✕
+          </button>
+
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 800, color: theme.textMuted, marginBottom: 12 }}>
+              CONTACT DETAILS
+            </div>
+            <div style={{ fontSize: 32, fontWeight: 900, marginBottom: 8 }}>
+              {stakeholder.name || "Unnamed"}
+            </div>
+            <div style={{ color: theme.textSecondary, fontSize: 16, marginBottom: 16 }}>
+              {stakeholder.designation || "—"}
+              {stakeholder.organization && ` • ${stakeholder.organization}`}
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
+              {renderBadge(stakeholder.state, theme.primary)}
+              {renderBadge(stakeholder.category, getCategoryColor(stakeholder.category))}
+            </div>
+          </div>
+
+          <div
+            style={{
+              padding: 18,
+              borderRadius: 22,
+              background: isDark ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.72)",
+              border: `1px solid ${theme.border}`,
+            }}
+          >
+            <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: theme.textMuted, marginBottom: 12 }}>
+              Quick Actions
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              {stakeholder.mobile && (
+                <a
+                  href={`tel:${stakeholder.mobile}`}
+                  style={{
+                    height: 44,
+                    borderRadius: 12,
+                    background: theme.primary,
+                    color: isDark ? "#101214" : "#ffffff",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                    textDecoration: "none",
+                    fontWeight: 700,
+                    fontSize: 13,
+                    transition: "transform 0.2s ease",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-2px)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}
+                >
+                  <Phone size={16} />
+                  Call
+                </a>
+              )}
+              {stakeholder.email && (
+                <a
+                  href={`mailto:${stakeholder.email}`}
+                  style={{
+                    height: 44,
+                    borderRadius: 12,
+                    border: `1px solid ${theme.border}`,
+                    background: isDark ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.76)",
+                    color: theme.text,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                    textDecoration: "none",
+                    fontWeight: 700,
+                    fontSize: 13,
+                    transition: "all 0.2s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.82)";
+                    e.currentTarget.style.transform = "translateY(-2px)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.76)";
+                    e.currentTarget.style.transform = "translateY(0)";
+                  }}
+                >
+                  <Mail size={16} />
+                  Email
+                </a>
+              )}
+            </div>
+          </div>
+
+          <div
+            style={{
+              padding: 18,
+              borderRadius: 22,
+              background: isDark ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.72)",
+              border: `1px solid ${theme.border}`,
+            }}
+          >
+            <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: theme.textMuted, marginBottom: 12 }}>
+              Contact Information
+            </div>
+            <div style={{ display: "grid", gap: 14 }}>
+              {stakeholder.mobile && (
+                <div>
+                  <div style={{ fontSize: 11, color: theme.textMuted, marginBottom: 4 }}>Mobile</div>
+                  <div style={{ fontSize: 15, color: theme.text, fontWeight: 600, fontFamily: "monospace" }}>{stakeholder.mobile}</div>
+                </div>
+              )}
+              {stakeholder.officeNo && (
+                <div>
+                  <div style={{ fontSize: 11, color: theme.textMuted, marginBottom: 4 }}>Office</div>
+                  <div style={{ fontSize: 15, color: theme.text, fontWeight: 600, fontFamily: "monospace" }}>{stakeholder.officeNo}</div>
+                </div>
+              )}
+              {stakeholder.email && (
+                <div>
+                  <div style={{ fontSize: 11, color: theme.textMuted, marginBottom: 4 }}>Email</div>
+                  <div style={{ fontSize: 15, color: theme.text, fontWeight: 600, fontFamily: "monospace" }}>{stakeholder.email}</div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </>
+    );
   };
 
   if (!session) {
@@ -976,10 +1222,100 @@ export default function StakeholderDashboard() {
                 fontWeight: 800,
                 cursor: "pointer",
                 marginTop: 6,
+                transition: "all 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.opacity = "0.9";
+                e.currentTarget.style.transform = "translateY(-2px)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.opacity = "1";
+                e.currentTarget.style.transform = "translateY(0)";
               }}
             >
               Open Dashboard
             </button>
+
+            <div style={{ position: "relative", margin: "24px 0", display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ flex: 1, height: "1px", background: theme.border }} />
+              <span style={{ fontSize: 12, color: theme.textMuted, fontWeight: 600 }}>OR</span>
+              <div style={{ flex: 1, height: "1px", background: theme.border }} />
+            </div>
+
+            <div style={{ display: "grid", gap: 10 }}>
+              <button
+                type="button"
+                onClick={() => handleSocialLogin("google", "")}
+                style={{
+                  height: 48,
+                  borderRadius: 14,
+                  border: `2px solid ${theme.border}`,
+                  background: theme.surface,
+                  color: theme.text,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 10,
+                  transition: "all 0.2s ease",
+                  fontSize: 14,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = "#4285F4";
+                  e.currentTarget.style.boxShadow = "0 0 0 2px rgba(66,133,244,0.15)";
+                  e.currentTarget.style.transform = "translateY(-2px)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = theme.border;
+                  e.currentTarget.style.boxShadow = "none";
+                  e.currentTarget.style.transform = "translateY(0)";
+                }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M8 14s1.5 2 4 2 4-2 4-2" />
+                  <circle cx="9" cy="9" r="1" />
+                  <circle cx="15" cy="9" r="1" />
+                </svg>
+                Continue with Google
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleSocialLogin("facebook", "")}
+                style={{
+                  height: 48,
+                  borderRadius: 14,
+                  border: `2px solid ${theme.border}`,
+                  background: theme.surface,
+                  color: theme.text,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 10,
+                  transition: "all 0.2s ease",
+                  fontSize: 14,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = "#1877F2";
+                  e.currentTarget.style.boxShadow = "0 0 0 2px rgba(24,119,242,0.15)";
+                  e.currentTarget.style.transform = "translateY(-2px)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = theme.border;
+                  e.currentTarget.style.boxShadow = "none";
+                  e.currentTarget.style.transform = "translateY(0)";
+                }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 2h-3a6 6 0 0 0-6 6v4h-2v4h2v6h4v-6h3l1-4h-4V8a2 2 0 0 1 2-2h1z" />
+                </svg>
+                Continue with Facebook
+              </button>
+            </div>
           </form>
         </div>
       </div>
@@ -1059,6 +1395,20 @@ export default function StakeholderDashboard() {
           '"Segoe UI", "Aptos", "SF Pro Display", system-ui, sans-serif',
       }}
     >
+      <style>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes slideUp {
+          from { transform: translate(-50%, -40%); opacity: 0; }
+          to { transform: translate(-50%, -50%); opacity: 1; }
+        }
+      `}</style>
       <div style={{ maxWidth: 1440, margin: "0 auto", display: "grid", gap: 20 }}>
         <section
           style={{
@@ -1121,7 +1471,7 @@ export default function StakeholderDashboard() {
                 justifyContent: "flex-end",
               }}
             >
-              <UtilityButton onClick={handleRefresh} title={refreshing ? "Refreshing" : "Refresh"}>
+              <UtilityButton onClick={handleRefresh} title={refreshing ? "Refreshing" : "Refresh"} isLoading={refreshing}>
                 <RefreshCw size={15} style={{ opacity: 0.85 }} />
               </UtilityButton>
 
@@ -1217,8 +1567,7 @@ export default function StakeholderDashboard() {
                   gap: 12,
                 }}
               >
-                <StatPill label="SHOWN" value={summary.shown} />
-                <StatPill label="HIGH" value={summary.highPriority} />
+                <StatPill label="CONTACTS" value={summary.shown} />
                 <StatPill label="PHONE" value={summary.withPhone} />
                 <StatPill label="EMAIL" value={summary.withEmail} />
               </div>
@@ -1237,9 +1586,7 @@ export default function StakeholderDashboard() {
                   fontSize: 13,
                 }}
               >
-                <span>{summary.shown} shown</span>
-                <span>{summary.highPriority} high priority</span>
-                <span>{insightMetrics.contactReadyRate}% contact ready</span>
+                <span>{summary.shown} contacts</span>
               </div>
             )}
           </div>
@@ -1383,580 +1730,180 @@ export default function StakeholderDashboard() {
               { value: "Low", label: "Low" },
             ]}
           />
-          <FilterSelect
-            label="Position"
-            value={positionFilter}
-            onChange={setPositionFilter}
-            options={[
-              { value: "all", label: "All Positions" },
-              { value: "Supportive", label: "Supportive" },
-              { value: "Neutral", label: "Neutral" },
-              { value: "Resistant", label: "Resistant" },
-            ]}
-          />
         </section>
-
-        {(pinnedStakeholders.length > 0 || recentStakeholders.length > 0) && (
-          <section
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-              gap: 20,
-            }}
-          >
-            <div style={{ ...surfaceStyle, padding: 18 }}>
-              <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 14 }}>Pinned</div>
-              {pinnedStakeholders.length === 0 ? (
-                <div style={{ color: theme.textMuted, fontSize: 13 }}>No pinned contacts</div>
-              ) : (
-                <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 4 }}>
-                  {pinnedStakeholders.map((item) => (
-                    <StakeholderChip key={item.id} item={item} pinned />
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div style={{ ...surfaceStyle, padding: 18 }}>
-              <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 14 }}>Recently Viewed</div>
-              {recentStakeholders.length === 0 ? (
-                <div style={{ color: theme.textMuted, fontSize: 13 }}>No recent views</div>
-              ) : (
-                <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 4 }}>
-                  {recentStakeholders.map((item) => (
-                    <StakeholderChip key={item.id} item={item} />
-                  ))}
-                </div>
-              )}
-            </div>
-          </section>
-        )}
 
         <section
           style={{
+            ...surfaceStyle,
+            padding: 18,
             display: "grid",
-            gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1.05fr) minmax(320px, 0.95fr)",
-            gap: 20,
-            alignItems: "start",
+            overflow: "hidden",
           }}
         >
-          <div style={{ ...surfaceStyle, overflow: "hidden", order: isMobile ? 2 : 1 }}>
-            <div
-              style={{
-                padding: "18px 20px",
-                borderBottom: `1px solid ${theme.border}`,
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                gap: 12,
-                flexWrap: "wrap",
-              }}
-            >
-              <div>
-                <div style={{ fontSize: 18, fontWeight: 800 }}>Stakeholders</div>
-                <div style={{ fontSize: 13, color: theme.textMuted, marginTop: 4 }}>
-                  {summary.shown} results
-                </div>
+          <div
+            style={{
+              padding: "0 0 18px",
+              borderBottom: `1px solid ${theme.border}`,
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 12,
+              flexWrap: "wrap",
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 18, fontWeight: 800 }}>Stakeholder Cards</div>
+              <div style={{ fontSize: 13, color: theme.textMuted, marginTop: 4 }}>
+                {summary.shown} results
               </div>
-              {(searchQuery || stateFilter !== "all" || sectorFilter !== "all" || priorityFilter !== "all" || positionFilter !== "all") && (
-                <button
-                  onClick={() => {
-                    setSearchQuery("");
-                    setStateFilter("all");
-                    setSectorFilter("all");
-                    setPriorityFilter("all");
-                    setPositionFilter("all");
-                    setSelectedId(null);
-                  }}
-                  style={{
-                    border: "none",
-                    background: "transparent",
-                    color: theme.primary,
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    padding: 0,
-                  }}
-                >
-                  Clear filters
-                </button>
-              )}
             </div>
-
-            <div
-              style={{
-                maxHeight: "calc(100vh - 290px)",
-                overflowY: isMobile ? "visible" : "auto",
-                padding: 12,
-              }}
-            >
-              {filteredStakeholders.length === 0 ? (
-                <div
-                  style={{
-                    padding: 28,
-                    borderRadius: 16,
-                    background: theme.surface,
-                    color: theme.textMuted,
-                    textAlign: "center",
-                  }}
-                >
-                  No stakeholders matched the current search and filters.
-                </div>
-              ) : (
-                filteredStakeholders.map((item) => {
-                  const active = item.id === selectedId;
-                  const isHighlighted =
-                    filteredStakeholders[highlightedIndex] && filteredStakeholders[highlightedIndex].id === item.id;
-                  const contactInfo = [item.mobile || item.officeNo, item.email].filter(Boolean);
-
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => handleSelectStakeholder(item.id)}
-                      style={{
-                        width: "100%",
-                        textAlign: "left",
-                        border: `1px solid ${active ? theme.primary : isHighlighted ? theme.divider : theme.border}`,
-                        background: active
-                          ? `${theme.primary}10`
-                          : isHighlighted
-                            ? (isDark ? "rgba(255,255,255,0.035)" : "rgba(255,255,255,0.78)")
-                            : "transparent",
-                        borderRadius: 18,
-                        padding: "16px 16px 14px",
-                        marginBottom: 10,
-                        cursor: "pointer",
-                        transition: "transform 0.16s ease, border-color 0.16s ease, background 0.16s ease",
-                      }}
-                      onMouseEnter={(event) => {
-                        event.currentTarget.style.transform = "translateY(-1px)";
-                      }}
-                      onMouseLeave={(event) => {
-                        event.currentTarget.style.transform = "translateY(0)";
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          gap: 12,
-                          alignItems: "flex-start",
-                        }}
-                      >
-                        <div>
-                          <div style={{ fontSize: 17, fontWeight: 800, color: theme.text }}>
-                            {renderHighlightedText(item.name || "Unnamed stakeholder")}
-                          </div>
-                          <div style={{ fontSize: 13, color: theme.textSecondary, marginTop: 3 }}>
-                            {renderHighlightedText(item.designation || "No designation")}{" "}
-                            {item.organization ? (
-                              <>
-                                • {renderHighlightedText(item.organization)}
-                              </>
-                            ) : (
-                              ""
-                            )}
-                          </div>
-                        </div>
-                        <div
-                          style={{
-                            fontSize: 12,
-                            fontWeight: 700,
-                            color: theme.textMuted,
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {renderHighlightedText(item.id)}
-                        </div>
-                      </div>
-
-                      <div
-                        style={{
-                          display: "flex",
-                          gap: 8,
-                          flexWrap: "wrap",
-                          marginTop: 12,
-                        }}
-                      >
-                        {renderBadge(item.state, theme.primary)}
-                        {renderBadge(item.category, getCategoryColor(item.category))}
-                        {renderBadge(item.priority, getLevelColor(item.priority))}
-                        {renderBadge(item.position, getPositionColor(item.position))}
-                      </div>
-
-                      <div
-                        style={{
-                          display: "flex",
-                          flexWrap: "wrap",
-                          gap: 8,
-                          marginTop: 14,
-                          fontSize: 13,
-                        }}
-                      >
-                        {contactInfo.map((value) => (
-                          <div
-                            key={value}
-                            style={{
-                              color: theme.textSecondary,
-                              padding: "6px 10px",
-                              borderRadius: 999,
-                              background: isDark ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.76)",
-                              border: `1px solid ${theme.border}`,
-                            }}
-                          >
-                            {renderHighlightedText(value)}
-                          </div>
-                        ))}
-                      </div>
-
-                      {hasDuplicateIdentity(item) ? (
-                        <div
-                          style={{
-                            display: "flex",
-                            gap: 8,
-                            flexWrap: "wrap",
-                            marginTop: 10,
-                          }}
-                        >
-                          {renderBadge("Possible duplicate", theme.warning)}
-                        </div>
-                      ) : null}
-                      
-                      {item.nextActionDate || item.nextAction ? (
-                        <div
-                          style={{
-                            marginTop: 10,
-                            fontSize: 12,
-                            color: theme.textMuted,
-                          }}
-                        >
-                          {item.nextActionDate || item.nextAction}
-                        </div>
-                      ) : null}
-                    </button>
-                  );
-                })
-              )}
-            </div>
+            {(searchQuery || stateFilter !== "all" || sectorFilter !== "all" || priorityFilter !== "all") && (
+              <button
+                onClick={() => {
+                  setSearchQuery("");
+                  setStateFilter("all");
+                  setSectorFilter("all");
+                  setPriorityFilter("all");
+                  setSelectedId(null);
+                }}
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  color: theme.primary,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  padding: 0,
+                  transition: "all 0.2s ease",
+                  fontSize: 14,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.opacity = "0.7";
+                  e.currentTarget.style.transform = "scale(1.05)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.opacity = "1";
+                  e.currentTarget.style.transform = "scale(1)";
+                }}
+              >
+                Clear filters
+              </button>
+            )}
           </div>
 
           <div
             style={{
-              ...surfaceStyle,
-              position: isMobile ? "static" : "sticky",
-              top: 20,
-              overflow: "hidden",
-              order: isMobile ? 1 : 2,
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+              gap: 14,
+              padding: "18px 0 0 0",
+              overflowY: "auto",
+              maxHeight: "calc(100vh - 290px)",
             }}
           >
-            {selectedStakeholder ? (
-              <>
-                <div
-                  style={{
-                    padding: 24,
-                    borderBottom: `1px solid ${theme.border}`,
-                    background: isDark ? "rgba(255,255,255,0.02)" : "rgba(15,23,42,0.02)",
-                  }}
-                >
-                  <div style={{ fontSize: 12, fontWeight: 800, color: theme.textMuted }}>
-                    CONTACT CARD
-                  </div>
-                  <div style={{ fontSize: 30, fontWeight: 900, marginTop: 8 }}>
-                    {selectedStakeholder.name || "Unnamed stakeholder"}
-                  </div>
-                  <div style={{ color: theme.textSecondary, marginTop: 8, fontSize: 15 }}>
-                    {selectedStakeholder.designation || "No designation"}
-                    {selectedStakeholder.organization
-                      ? ` • ${selectedStakeholder.organization}`
-                      : ""}
-                  </div>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 16 }}>
-                    {renderBadge(selectedStakeholder.state, theme.primary)}
-                    {renderBadge(
-                      selectedStakeholder.category,
-                      getCategoryColor(selectedStakeholder.category),
-                    )}
-                    {renderBadge(
-                      selectedStakeholder.sentiment,
-                      getSentimentColor(selectedStakeholder.sentiment),
-                    )}
-                    {renderBadge(
-                      selectedStakeholder.position,
-                      getPositionColor(selectedStakeholder.position),
-                    )}
-                  </div>
-                  <div style={{ marginTop: 14 }}>
-                    <button
-                      onClick={() => togglePinned(selectedStakeholder.id)}
-                      style={{
-                        border: `1px solid ${theme.border}`,
-                        background: isDark ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.76)",
-                        color: pinnedIds.includes(selectedStakeholder.id) ? theme.warning : theme.text,
-                        borderRadius: 999,
-                        padding: "10px 14px",
-                        fontWeight: 800,
-                        cursor: "pointer",
-                      }}
-                    >
-                      {pinnedIds.includes(selectedStakeholder.id) ? "Unpin" : "Pin"}
-                    </button>
-                  </div>
-                </div>
+            {filteredStakeholders.length === 0 ? (
+              <div
+                style={{
+                  padding: 28,
+                  borderRadius: 16,
+                  background: theme.surface,
+                  color: theme.textMuted,
+                  textAlign: "center",
+                  gridColumn: "1 / -1",
+                }}
+              >
+                No stakeholders matched the current search and filters.
+              </div>
+            ) : (
+              filteredStakeholders.map((item) => {
+                const active = item.id === selectedId;
+                const contactInfo = [item.mobile || item.officeNo, item.email].filter(Boolean);
 
-                <div style={{ padding: 24, display: "grid", gap: 22 }}>
-                  <div
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => handleSelectStakeholder(item.id)}
                     style={{
-                      padding: 16,
-                      borderRadius: 22,
-                      background: isDark ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.72)",
-                      border: `1px solid ${theme.border}`,
+                      textAlign: "left",
+                      border: `1px solid ${active ? theme.primary : theme.border}`,
+                      background: active ? `${theme.primary}10` : theme.card,
+                      borderRadius: 18,
+                      padding: 14,
+                      cursor: "pointer",
+                      transition: "all 0.2s ease",
+                      display: "grid",
+                      gridTemplateRows: "auto auto auto auto",
+                      gap: 10,
+                      boxShadow: active ? `0 0 0 2px ${theme.primary}20` : "none",
+                    }}
+                    onMouseEnter={(event) => {
+                      event.currentTarget.style.transform = "translateY(-4px)";
+                      event.currentTarget.style.boxShadow = `0 8px 20px ${isDark ? "rgba(0,0,0,0.2)" : "rgba(15,23,42,0.1)"}`;
+                    }}
+                    onMouseLeave={(event) => {
+                      event.currentTarget.style.transform = "translateY(0)";
+                      event.currentTarget.style.boxShadow = active ? `0 0 0 2px ${theme.primary}20` : "none";
                     }}
                   >
+                    <div>
+                      <div style={{ fontSize: 15, fontWeight: 800, color: theme.text }}>
+                        {renderHighlightedText(item.name || "Unnamed")}
+                      </div>
+                      <div style={{ fontSize: 12, color: theme.textSecondary, marginTop: 3 }}>
+                        {renderHighlightedText(item.designation || "—")}
+                      </div>
+                    </div>
+
+                    <div style={{ fontSize: 12, color: theme.textSecondary }}>
+                      {renderHighlightedText(item.organization || "—")}
+                    </div>
+
                     <div
                       style={{
+                        display: "flex",
+                        gap: 6,
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      {renderBadge(item.state, theme.primary)}
+                      {renderBadge(item.category, getCategoryColor(item.category))}
+                      {renderBadge(item.priority, getLevelColor(item.priority))}
+                    </div>
+
+                    <div
+                      style={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: 6,
                         fontSize: 11,
-                        fontWeight: 800,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.08em",
-                        color: theme.textMuted,
-                        marginBottom: 10,
                       }}
                     >
-                      Actions
-                    </div>
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
-                        gap: 10,
-                      }}
-                    >
-                    {selectedStakeholder.mobile && (
-                      <a
-                        href={`tel:${selectedStakeholder.mobile}`}
-                        style={{
-                          height: 44,
-                          borderRadius: 999,
-                          background: theme.primary,
-                          color: isDark ? "#101214" : "#ffffff",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          gap: 8,
-                          textDecoration: "none",
-                          fontWeight: 800,
-                        }}
-                      >
-                        <Phone size={16} />
-                        Call
-                      </a>
-                    )}
-
-                    {selectedStakeholder.email && (
-                      <a
-                        href={`mailto:${selectedStakeholder.email}`}
-                        style={{
-                          height: 44,
-                          borderRadius: 999,
-                          border: `1px solid ${theme.border}`,
-                          background: isDark ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.76)",
-                          color: theme.text,
-                          display: "inline-flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          gap: 8,
-                          textDecoration: "none",
-                          fontWeight: 800,
-                        }}
-                      >
-                        <Mail size={16} />
-                        Email
-                      </a>
-                    )}
-
-                    {(selectedStakeholder.mobile || selectedStakeholder.officeNo) && (
-                      <button
-                        onClick={() =>
-                          handleCopy(
-                            selectedStakeholder.mobile || selectedStakeholder.officeNo,
-                            "Phone number",
-                          )
-                        }
-                        style={{
-                          height: 44,
-                          borderRadius: 999,
-                          border: `1px solid ${theme.border}`,
-                          background: isDark ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.76)",
-                          color: theme.text,
-                          display: "inline-flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          gap: 8,
-                          fontWeight: 800,
-                          cursor: "pointer",
-                        }}
-                      >
-                        <Copy size={16} />
-                        Copy
-                      </button>
-                    )}
-                  </div>
-                  </div>
-
-                  {copyStatus && (
-                    <div
-                      style={{
-                        fontSize: 13,
-                        color: theme.primary,
-                        fontWeight: 700,
-                      }}
-                    >
-                      {copyStatus}
-                    </div>
-                  )}
-
-                  <div
-                    style={{
-                      padding: 18,
-                      borderRadius: 22,
-                      background: isDark ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.72)",
-                      border: `1px solid ${theme.border}`,
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontSize: 11,
-                        fontWeight: 800,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.08em",
-                        color: theme.textMuted,
-                        marginBottom: 12,
-                      }}
-                    >
-                      Details
-                    </div>
-                    <div style={{ display: "grid", gap: 16 }}>
-                      {[
-                        ["Mobile", selectedStakeholder.mobile],
-                        ["Office No.", selectedStakeholder.officeNo],
-                        ["Email", selectedStakeholder.email],
-                        ["Influence", selectedStakeholder.influence],
-                        ["Interest", selectedStakeholder.interest],
-                        ["Priority", selectedStakeholder.priority],
-                        ["Last Interaction", selectedStakeholder.lastInteraction],
-                      ].map(([label, value]) => (
-                        <DetailRow key={label} label={label} value={value} />
+                      {contactInfo.map((value) => (
+                        <div
+                          key={value}
+                          style={{
+                            color: theme.textSecondary,
+                            padding: "4px 8px",
+                            borderRadius: 999,
+                            background: isDark ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.76)",
+                            border: `1px solid ${theme.border}`,
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            maxWidth: "100%",
+                          }}
+                        >
+                          {renderHighlightedText(value)}
+                        </div>
                       ))}
                     </div>
-                  </div>
-
-                  {(selectedStakeholder.nextActionDate || selectedStakeholder.nextAction) && (
-                    <div
-                      style={{
-                        padding: 18,
-                        borderRadius: 22,
-                        background: isDark ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.72)",
-                        border: `1px solid ${theme.border}`,
-                      }}
-                    >
-                      <div
-                        style={{
-                          fontSize: 11,
-                          fontWeight: 800,
-                          textTransform: "uppercase",
-                          letterSpacing: "0.08em",
-                          color: theme.textMuted,
-                          marginBottom: 10,
-                        }}
-                      >
-                        Next Action
-                      </div>
-                      <div style={{ display: "grid", gap: 10 }}>
-                        {selectedStakeholder.nextActionDate ? (
-                          <div style={{ color: theme.text, fontSize: 14 }}>
-                            {selectedStakeholder.nextActionDate}
-                          </div>
-                        ) : null}
-                        {selectedStakeholder.nextAction ? (
-                          <div style={{ color: theme.textSecondary, fontSize: 14, lineHeight: 1.6 }}>
-                            {selectedStakeholder.nextAction}
-                          </div>
-                        ) : null}
-                      </div>
-                    </div>
-                  )}
-
-                  <div
-                    style={{
-                      padding: 18,
-                      borderRadius: 22,
-                      background: isDark ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.72)",
-                      border: `1px solid ${theme.border}`,
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontSize: 11,
-                        fontWeight: 800,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.08em",
-                        color: theme.textMuted,
-                        marginBottom: 8,
-                      }}
-                    >
-                      Notes
-                    </div>
-                    <div style={{ color: theme.textSecondary, fontSize: 14, lineHeight: 1.7 }}>
-                      {selectedStakeholder.notes || "No notes"}
-                    </div>
-                  </div>
-
-                  {(selectedStakeholder.mobile ||
-                    selectedStakeholder.officeNo ||
-                    selectedStakeholder.email) && (
-                    <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                      {(selectedStakeholder.mobile || selectedStakeholder.officeNo) && (
-                        <a
-                          href={`tel:${selectedStakeholder.mobile || selectedStakeholder.officeNo}`}
-                          style={{
-                            color: theme.primary,
-                            textDecoration: "none",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 6,
-                            fontWeight: 700,
-                          }}
-                        >
-                          <ArrowUpRight size={15} />
-                          Open dialer
-                        </a>
-                      )}
-                      {selectedStakeholder.email && (
-                        <a
-                          href={`mailto:${selectedStakeholder.email}`}
-                          style={{
-                            color: theme.primary,
-                            textDecoration: "none",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 6,
-                            fontWeight: 700,
-                          }}
-                        >
-                          <ArrowUpRight size={15} />
-                          Open email draft
-                        </a>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </>
-            ) : (
-              <div style={{ padding: 28, color: theme.textMuted }}>
-                Select a stakeholder to view the card.
-              </div>
+                  </button>
+                );
+              })
             )}
           </div>
         </section>
+
+        {selectedStakeholder && <ContactModal stakeholder={selectedStakeholder} onClose={() => setSelectedId(null)} />}
       </div>
     </div>
   );
