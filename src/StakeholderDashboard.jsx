@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   BarChart3,
   ChevronDown,
@@ -189,9 +189,14 @@ export default function StakeholderDashboard() {
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 30000);
+    // Auto-refresh every 30 seconds, but pause when contact modal is open
+    const interval = setInterval(() => {
+      if (!selectedId) {
+        loadData();
+      }
+    }, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [selectedId]);
 
   useEffect(() => {
     if (!copyStatus) return undefined;
@@ -274,6 +279,12 @@ export default function StakeholderDashboard() {
       });
   }, [data, priorityFilter, searchQuery, sectorFilter, stateFilter]);
 
+  // Prevent modal from showing stale data when filteredStakeholders updates
+  const selectedStakeholderForModal = useMemo(
+    () => filteredStakeholders.find((item) => item.id === selectedId) || null,
+    [filteredStakeholders, selectedId],
+  );
+
   useEffect(() => {
     if (filteredStakeholders.length === 0) {
       setSelectedId(null);
@@ -292,10 +303,7 @@ export default function StakeholderDashboard() {
     setHighlightedIndex(0);
   }, [searchQuery, stateFilter, sectorFilter, priorityFilter]);
 
-  const selectedStakeholder = useMemo(
-    () => filteredStakeholders.find((item) => item.id === selectedId) || null,
-    [filteredStakeholders, selectedId],
-  );
+
 
   const stakeholderLookup = useMemo(
     () => new Map(data.map((item) => [item.id, item])),
@@ -884,13 +892,14 @@ export default function StakeholderDashboard() {
     setLoginForm({ name: "", phone: "", email: "" });
   };
 
-  const ContactModal = ({ stakeholder, onClose }) => {
+  const ContactModal = React.memo(({ stakeholder, onClose }) => {
     if (!stakeholder) return null;
 
     return (
       <>
         <div
           onClick={onClose}
+          className="modal-backdrop"
           style={{
             position: "fixed",
             top: 0,
@@ -900,10 +909,10 @@ export default function StakeholderDashboard() {
             background: "rgba(0,0,0,0.4)",
             backdropFilter: "blur(6px)",
             zIndex: 998,
-            animation: "fadeIn 0.3s ease",
           }}
         />
         <div
+          className="modal-content"
           style={{
             position: "fixed",
             top: "50%",
@@ -913,14 +922,14 @@ export default function StakeholderDashboard() {
             border: `1px solid ${theme.border}`,
             borderRadius: 28,
             padding: 32,
-            maxWidth: "min(100%, 600px)",
+            width: "520px",
+            maxWidth: "calc(100% - 48px)",
             maxHeight: "90vh",
             overflowY: "auto",
             zIndex: 999,
             boxShadow: isDark
               ? "0 25px 50px rgba(0,0,0,0.4)"
               : "0 25px 50px rgba(15,23,42,0.15)",
-            animation: "slideUp 0.4s ease",
             display: "grid",
             gap: 24,
           }}
@@ -1070,7 +1079,7 @@ export default function StakeholderDashboard() {
         </div>
       </>
     );
-  };
+  });
 
   if (!session) {
     return (
@@ -1919,7 +1928,7 @@ export default function StakeholderDashboard() {
           </div>
         </section>
 
-        {selectedStakeholder && <ContactModal stakeholder={selectedStakeholder} onClose={() => setSelectedId(null)} />}
+        {selectedStakeholderForModal && <ContactModal stakeholder={selectedStakeholderForModal} onClose={() => setSelectedId(null)} />}
       </div>
     </div>
   );

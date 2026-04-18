@@ -123,7 +123,6 @@ const mapRow = (row, rowIndex, sheetState) => {
     
     // Derived/formatted fields for dashboard compatibility
     phone: normalizeTextValue(row[COLUMN_NAMES.mobile] || ''), // Primary contact number
-    contact: [row[COLUMN_NAMES.mobile], row[COLUMN_NAMES.officeNo]].map(normalizeTextValue).filter(Boolean).join(' / '), // Both phone numbers
     entityType: 'Person', // Default to Person (can be enhanced in future)
     strategy: '', // Not in new schema but may be needed
     owner: normalizeTextValue(row[COLUMN_NAMES.relManager] || ''), // Map relManager to owner for compatibility
@@ -179,15 +178,33 @@ export const fetchStakeholders = async () => {
       throw new Error('No data found across all sheets');
     }
     
+    // Deduplication: Keep first occurrence, flag duplicates
+    const seenIds = new Map();
+    let duplicateCount = 0;
+    const deduplicated = allStakeholders.filter(stakeholder => {
+      const id = stakeholder.id.trim().toLowerCase();
+      if (seenIds.has(id)) {
+        duplicateCount++;
+        console.warn(`  ⚠ Duplicate ID detected: "${stakeholder.id}" (keeping first occurrence)`);
+        return false;
+      }
+      seenIds.set(id, true);
+      return true;
+    });
+    
+    if (duplicateCount > 0) {
+      console.log(`  ⚠ Removed ${duplicateCount} duplicate records`);
+    }
+    
     // Log summary with state breakdown
     console.log(`\n✅ Load Complete:`);
-    console.log(`  Total: ${allStakeholders.length} stakeholders`);
+    console.log(`  Total: ${deduplicated.length} unique stakeholders`);
     GOOGLE_SHEET_CONFIG.getAllStateNames().forEach(state => {
-      const count = allStakeholders.filter(s => s.state === state).length;
+      const count = deduplicated.filter(s => s.state === state).length;
       console.log(`  • ${state}: ${count}`);
     });
     
-    return allStakeholders;
+    return deduplicated;
   } catch (error) {
     console.error('Error fetching stakeholders:', error);
     throw error;
