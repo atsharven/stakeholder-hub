@@ -5,12 +5,15 @@ import {
   ChevronDown,
   ChevronUp,
   Copy,
+  LogOut,
   Mail,
   Moon,
   Phone,
   RefreshCw,
   Search,
+  ShieldCheck,
   Sun,
+  UserRound,
 } from "lucide-react";
 import { fetchStakeholders } from "./googleSheetsClient";
 import { useTheme } from "./useTheme";
@@ -51,6 +54,10 @@ const searchableFields = [
 const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const normalizeSearchText = (value) => String(value || "").toLowerCase().replace(/\s+/g, " ").trim();
 const normalizePhone = (value) => String(value || "").replace(/\D/g, "");
+const createIdentityKey = (item) =>
+  [normalizeSearchText(item.name), normalizeSearchText(item.organization), normalizeSearchText(item.designation)]
+    .filter(Boolean)
+    .join("|");
 
 const getSearchScore = (item, query) => {
   if (!query) return 0;
@@ -113,6 +120,21 @@ export default function StakeholderDashboard() {
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== "undefined" ? window.innerWidth < 980 : false,
   );
+  const [session, setSession] = useState(() => {
+    if (typeof window === "undefined") return null;
+
+    try {
+      const saved = window.localStorage.getItem("stakeholder-session");
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [loginForm, setLoginForm] = useState({
+    name: "",
+    phone: "",
+    email: "",
+  });
   const [showSummary, setShowSummary] = useState(false);
   const [showInsights, setShowInsights] = useState(false);
   const [pinnedIds, setPinnedIds] = useState(() => {
@@ -196,6 +218,16 @@ export default function StakeholderDashboard() {
     if (typeof window === "undefined") return;
     window.localStorage.setItem("stakeholder-recent", JSON.stringify(recentIds));
   }, [recentIds]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    if (session) {
+      window.localStorage.setItem("stakeholder-session", JSON.stringify(session));
+    } else {
+      window.localStorage.removeItem("stakeholder-session");
+    }
+  }, [session]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -322,6 +354,12 @@ export default function StakeholderDashboard() {
     ).length;
 
     const withNotes = filteredStakeholders.filter((item) => item.notes).length;
+    const missingContactCount = filteredStakeholders.filter(
+      (item) => !item.mobile && !item.officeNo && !item.email,
+    ).length;
+    const nextActionReady = filteredStakeholders.filter(
+      (item) => item.nextAction || item.nextActionDate,
+    ).length;
 
     return {
       engagementRate:
@@ -329,10 +367,62 @@ export default function StakeholderDashboard() {
           ? Math.round((engagementReady / filteredStakeholders.length) * 100)
           : 0,
       withNotes,
+      nextActionRate:
+        filteredStakeholders.length > 0
+          ? Math.round((nextActionReady / filteredStakeholders.length) * 100)
+          : 0,
+      missingContactCount,
       positions: Object.entries(positionCounts).sort((a, b) => b[1] - a[1]).slice(0, 4),
       states: Object.entries(stateCounts).sort((a, b) => b[1] - a[1]).slice(0, 4),
     };
   }, [filteredStakeholders]);
+
+  const dataQuality = useMemo(() => {
+    const identityCounts = new Map();
+    const emailCounts = new Map();
+    const phoneCounts = new Map();
+
+    filteredStakeholders.forEach((item) => {
+      const identityKey = createIdentityKey(item);
+      const emailKey = normalizeSearchText(item.email);
+      const phoneKey = normalizePhone(item.mobile || item.officeNo);
+
+      if (identityKey) {
+        identityCounts.set(identityKey, (identityCounts.get(identityKey) || 0) + 1);
+      }
+      if (emailKey) {
+        emailCounts.set(emailKey, (emailCounts.get(emailKey) || 0) + 1);
+      }
+      if (phoneKey) {
+        phoneCounts.set(phoneKey, (phoneCounts.get(phoneKey) || 0) + 1);
+      }
+    });
+
+    const duplicateIdentity = filteredStakeholders.filter(
+      (item) => identityCounts.get(createIdentityKey(item)) > 1,
+    ).length;
+    const duplicateEmail = filteredStakeholders.filter(
+      (item) => item.email && emailCounts.get(normalizeSearchText(item.email)) > 1,
+    ).length;
+    const duplicatePhone = filteredStakeholders.filter((item) => {
+      const phoneKey = normalizePhone(item.mobile || item.officeNo);
+      return phoneKey && phoneCounts.get(phoneKey) > 1;
+    }).length;
+
+    const incompleteContacts = filteredStakeholders.filter(
+      (item) => !item.mobile && !item.officeNo && !item.email,
+    ).length;
+
+    return {
+      duplicateIdentity,
+      duplicateEmail,
+      duplicatePhone,
+      incompleteContacts,
+    };
+  }, [filteredStakeholders]);
+
+  const hasDuplicateIdentity = (item) =>
+    filteredStakeholders.filter((candidate) => createIdentityKey(candidate) === createIdentityKey(item)).length > 1;
 
   const handleCopy = async (value, label) => {
     const copied = await copyText(value);
@@ -494,6 +584,25 @@ export default function StakeholderDashboard() {
     </button>
   );
 
+  const StatPill = ({ label, value }) => (
+    <div
+      style={{
+        display: "grid",
+        gap: 2,
+        minWidth: 92,
+        padding: "10px 12px",
+        borderRadius: 14,
+        border: `1px solid ${theme.border}`,
+        background: theme.bg,
+      }}
+    >
+      <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", color: theme.textMuted }}>
+        {label}
+      </div>
+      <div style={{ fontSize: 20, fontWeight: 900, color: theme.text }}>{value}</div>
+    </div>
+  );
+
   const MiniChart = ({ title, entries, colorGetter }) => (
     <div
       style={{
@@ -561,6 +670,30 @@ export default function StakeholderDashboard() {
     </div>
   );
 
+  const DetailRow = ({ label, value }) => (
+    <div
+      style={{
+        display: "grid",
+        gap: 6,
+        paddingBottom: 14,
+        borderBottom: `1px solid ${theme.border}`,
+      }}
+    >
+      <div
+        style={{
+          fontSize: 11,
+          fontWeight: 800,
+          textTransform: "uppercase",
+          letterSpacing: "0.08em",
+          color: theme.textMuted,
+        }}
+      >
+        {label}
+      </div>
+      <div style={{ color: theme.text, fontSize: 14, lineHeight: 1.5 }}>{value || "—"}</div>
+    </div>
+  );
+
   const handleSearchKeyDown = (event) => {
     if (filteredStakeholders.length === 0) {
       if (event.key === "Escape") setSearchQuery("");
@@ -598,6 +731,201 @@ export default function StakeholderDashboard() {
       setSearchQuery("");
     }
   };
+
+  const handleLogin = (event) => {
+    event.preventDefault();
+
+    if (!loginForm.name.trim()) return;
+
+    setSession({
+      name: loginForm.name.trim(),
+      phone: loginForm.phone.trim(),
+      email: loginForm.email.trim().toLowerCase(),
+      loginAt: new Date().toISOString(),
+    });
+  };
+
+  const handleLogout = () => {
+    setSession(null);
+  };
+
+  if (!session) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: isDark
+            ? "linear-gradient(180deg, #121212 0%, #171717 100%)"
+            : "linear-gradient(180deg, #f7f8fb 0%, #eef2f7 100%)",
+          display: "grid",
+          placeItems: "center",
+          padding: 24,
+          color: theme.text,
+          fontFamily: '"Segoe UI", "Aptos", "SF Pro Display", system-ui, sans-serif',
+        }}
+      >
+        <div
+          style={{
+            ...surfaceStyle,
+            width: "min(100%, 980px)",
+            display: "grid",
+            gridTemplateColumns: isMobile ? "1fr" : "1.05fr 0.95fr",
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              padding: "clamp(24px, 4vw, 42px)",
+              background: isDark
+                ? "linear-gradient(140deg, rgba(31,31,31,1) 0%, rgba(24,24,24,1) 100%)"
+                : "linear-gradient(140deg, rgba(255,255,255,1) 0%, rgba(248,250,252,1) 100%)",
+              borderRight: isMobile ? "none" : `1px solid ${theme.border}`,
+              borderBottom: isMobile ? `1px solid ${theme.border}` : "none",
+            }}
+          >
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "6px 10px",
+                borderRadius: 999,
+                background: `${theme.primary}14`,
+                color: theme.primary,
+                fontWeight: 700,
+                fontSize: 12,
+                marginBottom: 16,
+              }}
+            >
+              <ShieldCheck size={14} />
+              WRI Stakeholder Dashboard
+            </div>
+            <h1
+              style={{
+                fontSize: "clamp(28px, 5vw, 42px)",
+                lineHeight: 1.05,
+                letterSpacing: "-0.04em",
+                marginBottom: 10,
+              }}
+            >
+              Sign in to open the stakeholder workspace.
+            </h1>
+            <p style={{ color: theme.textSecondary, fontSize: 15, maxWidth: 480 }}>
+              This is a lightweight login shell for now. We can later extend it to store and use
+              user details, permissions, and activity context.
+            </p>
+
+            <div
+              style={{
+                marginTop: 24,
+                display: "grid",
+                gap: 12,
+              }}
+            >
+              {[
+                "Fast search across contacts, orgs, emails, and phone numbers",
+                "Quick stakeholder cards with call, email, and copy actions",
+                "Optional insights instead of a metrics-heavy default screen",
+              ].map((item) => (
+                <div
+                  key={item}
+                  style={{
+                    display: "flex",
+                    gap: 10,
+                    alignItems: "center",
+                    color: theme.textSecondary,
+                    fontSize: 14,
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: 999,
+                      background: theme.primary,
+                      flexShrink: 0,
+                    }}
+                  />
+                  {item}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <form
+            onSubmit={handleLogin}
+            style={{
+              padding: "clamp(24px, 4vw, 42px)",
+              display: "grid",
+              gap: 18,
+              alignContent: "center",
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 22, fontWeight: 800 }}>Sign In</div>
+              <div style={{ color: theme.textSecondary, marginTop: 6, fontSize: 14 }}>
+                Enter your details to continue.
+              </div>
+            </div>
+
+            {[
+              { key: "name", label: "Name", required: true, type: "text", placeholder: "Your name" },
+              { key: "phone", label: "Phone", required: false, type: "tel", placeholder: "Optional phone" },
+              { key: "email", label: "Email", required: false, type: "email", placeholder: "Optional email" },
+            ].map((field) => (
+              <label key={field.key} style={{ display: "grid", gap: 8 }}>
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                    color: theme.textMuted,
+                  }}
+                >
+                  {field.label}
+                </span>
+                <input
+                  required={field.required}
+                  type={field.type}
+                  value={loginForm[field.key]}
+                  onChange={(event) =>
+                    setLoginForm((current) => ({ ...current, [field.key]: event.target.value }))
+                  }
+                  placeholder={field.placeholder}
+                  style={{
+                    height: 48,
+                    borderRadius: 14,
+                    border: `1px solid ${theme.border}`,
+                    background: theme.surface,
+                    color: theme.text,
+                    padding: "0 14px",
+                    fontSize: 14,
+                  }}
+                />
+              </label>
+            ))}
+
+            <button
+              type="submit"
+              style={{
+                height: 48,
+                borderRadius: 14,
+                border: "none",
+                background: theme.primary,
+                color: isDark ? "#101214" : "#ffffff",
+                fontWeight: 800,
+                cursor: "pointer",
+                marginTop: 6,
+              }}
+            >
+              Open Dashboard
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   if (data.length === 0 && !error) {
     return (
@@ -709,22 +1037,39 @@ export default function StakeholderDashboard() {
               >
                 WRI Stakeholder Dashboard
               </div>
-              <h1
-                style={{
-                  fontSize: "clamp(28px, 5vw, 42px)",
-                  lineHeight: 1.05,
-                  letterSpacing: "-0.04em",
-                  marginBottom: 8,
-                }}
-              >
-                WRI stakeholder contacts, in one place.
-              </h1>
-              <p style={{ color: theme.textSecondary, maxWidth: 520, fontSize: 14 }}>
-                Search, filter, and open stakeholder contact cards quickly.
-              </p>
-            </div>
+            <h1
+              style={{
+                fontSize: "clamp(26px, 5vw, 38px)",
+                lineHeight: 1.05,
+                letterSpacing: "-0.04em",
+                marginBottom: 4,
+              }}
+            >
+              Stakeholder contacts, simplified.
+            </h1>
+            <p style={{ color: theme.textSecondary, maxWidth: 420, fontSize: 13 }}>
+              Search. Filter. Open.
+            </p>
+          </div>
 
             <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+              <div
+                style={{
+                  height: 42,
+                  padding: "0 14px",
+                  borderRadius: 12,
+                  border: `1px solid ${theme.border}`,
+                  background: theme.surface,
+                  color: theme.text,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  fontWeight: 700,
+                }}
+              >
+                <UserRound size={16} />
+                {session.name}
+              </div>
               <ToggleButton
                 active={showSummary}
                 onClick={() => setShowSummary((value) => !value)}
@@ -775,6 +1120,25 @@ export default function StakeholderDashboard() {
               >
                 {isDark ? <Sun size={18} /> : <Moon size={18} />}
               </button>
+              <button
+                onClick={handleLogout}
+                style={{
+                  height: 42,
+                  padding: "0 14px",
+                  borderRadius: 12,
+                  border: `1px solid ${theme.border}`,
+                  background: theme.surface,
+                  color: theme.text,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  cursor: "pointer",
+                  fontWeight: 700,
+                }}
+              >
+                <LogOut size={16} />
+                Logout
+              </button>
             </div>
           </div>
 
@@ -815,46 +1179,29 @@ export default function StakeholderDashboard() {
             {showSummary ? (
               <div
                 style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                  display: "flex",
+                  flexWrap: "wrap",
                   gap: 12,
                 }}
               >
-                {[
-                  { label: "Shown", value: summary.shown },
-                  { label: "High Priority", value: summary.highPriority },
-                  { label: "With Phone", value: summary.withPhone },
-                  { label: "With Email", value: summary.withEmail },
-                ].map((item) => (
-                  <div
-                    key={item.label}
-                    style={{
-                      borderRadius: 16,
-                      border: `1px solid ${theme.border}`,
-                      background: theme.bg,
-                      padding: "12px 14px",
-                    }}
-                  >
-                    <div style={{ fontSize: 11, color: theme.textMuted, fontWeight: 700 }}>
-                      {item.label}
-                    </div>
-                    <div style={{ fontSize: 24, fontWeight: 800, marginTop: 6 }}>{item.value}</div>
-                  </div>
-                ))}
+                <StatPill label="SHOWN" value={summary.shown} />
+                <StatPill label="HIGH" value={summary.highPriority} />
+                <StatPill label="PHONE" value={summary.withPhone} />
+                <StatPill label="EMAIL" value={summary.withEmail} />
               </div>
             ) : (
               <div
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 12,
+                  gap: 10,
+                  flexWrap: "wrap",
                   borderRadius: 16,
                   border: `1px solid ${theme.border}`,
                   background: theme.bg,
-                  padding: "12px 16px",
+                  padding: "10px 14px",
                   color: theme.textSecondary,
-                  fontSize: 14,
+                  fontSize: 13,
                 }}
               >
                 <span>{summary.shown} shown</span>
@@ -901,6 +1248,7 @@ export default function StakeholderDashboard() {
               <div style={{ display: "grid", gap: 8, color: theme.textSecondary, fontSize: 14 }}>
                 <div>{insightMetrics.withNotes} stakeholders have notes</div>
                 <div>{summary.highPriority} marked high priority</div>
+                <div>{insightMetrics.nextActionRate}% have next actions logged</div>
               </div>
             </div>
 
@@ -914,6 +1262,32 @@ export default function StakeholderDashboard() {
               entries={insightMetrics.states}
               colorGetter={() => theme.primary}
             />
+            <div
+              style={{
+                ...surfaceStyle,
+                padding: 18,
+                display: "grid",
+                gap: 12,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 800,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                  color: theme.textMuted,
+                }}
+              >
+                Data Quality
+              </div>
+              <div style={{ display: "grid", gap: 8, color: theme.textSecondary, fontSize: 14 }}>
+                <div>{dataQuality.incompleteContacts} records missing both phone and email</div>
+                <div>{dataQuality.duplicateIdentity} possible duplicate people/org entries</div>
+                <div>{dataQuality.duplicatePhone} repeated phone numbers</div>
+                <div>{dataQuality.duplicateEmail} repeated email addresses</div>
+              </div>
+            </div>
           </section>
         )}
 
@@ -979,9 +1353,7 @@ export default function StakeholderDashboard() {
             <div style={{ ...surfaceStyle, padding: 18 }}>
               <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 14 }}>Pinned</div>
               {pinnedStakeholders.length === 0 ? (
-                <div style={{ color: theme.textMuted, fontSize: 13 }}>
-                  Pin important stakeholders to keep them one click away.
-                </div>
+                <div style={{ color: theme.textMuted, fontSize: 13 }}>No pinned contacts</div>
               ) : (
                 <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 4 }}>
                   {pinnedStakeholders.map((item) => (
@@ -994,9 +1366,7 @@ export default function StakeholderDashboard() {
             <div style={{ ...surfaceStyle, padding: 18 }}>
               <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 14 }}>Recently Viewed</div>
               {recentStakeholders.length === 0 ? (
-                <div style={{ color: theme.textMuted, fontSize: 13 }}>
-                  Open a few profiles and they will appear here.
-                </div>
+                <div style={{ color: theme.textMuted, fontSize: 13 }}>No recent views</div>
               ) : (
                 <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 4 }}>
                   {recentStakeholders.map((item) => (
@@ -1031,7 +1401,7 @@ export default function StakeholderDashboard() {
               <div>
                 <div style={{ fontSize: 18, fontWeight: 800 }}>Stakeholders</div>
                 <div style={{ fontSize: 13, color: theme.textMuted, marginTop: 4 }}>
-                  {summary.shown} results matching your search and filters
+                  {summary.shown} results
                 </div>
               </div>
               {(searchQuery || stateFilter !== "all" || sectorFilter !== "all" || priorityFilter !== "all" || positionFilter !== "all") && (
@@ -1198,7 +1568,7 @@ export default function StakeholderDashboard() {
                         </div>
                       </div>
 
-                      {(!item.mobile && !item.officeNo) || !item.email ? (
+                      {((!item.mobile && !item.officeNo) || !item.email || hasDuplicateIdentity(item)) ? (
                         <div
                           style={{
                             display: "flex",
@@ -1209,6 +1579,7 @@ export default function StakeholderDashboard() {
                         >
                           {!item.mobile && !item.officeNo && renderBadge("Missing phone", theme.danger)}
                           {!item.email && renderBadge("Missing email", theme.warning)}
+                          {hasDuplicateIdentity(item) ? renderBadge("Possible duplicate", theme.warning) : null}
                         </div>
                       ) : null}
                       
@@ -1295,7 +1666,7 @@ export default function StakeholderDashboard() {
                         cursor: "pointer",
                       }}
                     >
-                      {pinnedIds.includes(selectedStakeholder.id) ? "Unpin stakeholder" : "Pin stakeholder"}
+                      {pinnedIds.includes(selectedStakeholder.id) ? "Unpin" : "Pin"}
                     </button>
                   </div>
                 </div>
@@ -1319,7 +1690,7 @@ export default function StakeholderDashboard() {
                         marginBottom: 10,
                       }}
                     >
-                      Reach Out
+                      Actions
                     </div>
                     <div
                       style={{
@@ -1430,47 +1801,24 @@ export default function StakeholderDashboard() {
                         marginBottom: 12,
                       }}
                     >
-                      Contact and Relationship
+                      Details
                     </div>
                     <div style={{ display: "grid", gap: 16 }}>
-                    {[
-                      ["Mobile", selectedStakeholder.mobile],
-                      ["Office No.", selectedStakeholder.officeNo],
-                      ["Email", selectedStakeholder.email],
-                      ["Relationship Manager", selectedStakeholder.relManager],
-                      ["Influence", selectedStakeholder.influence],
-                      ["Interest", selectedStakeholder.interest],
-                      ["Priority", selectedStakeholder.priority],
-                      ["Last Interaction", selectedStakeholder.lastInteraction],
-                      ["Next Action Date", selectedStakeholder.nextActionDate],
-                      ["Next Action", selectedStakeholder.nextAction],
-                    ].map(([label, value]) => (
-                      <div
-                        key={label}
-                        style={{
-                          display: "grid",
-                          gap: 6,
-                          paddingBottom: 14,
-                          borderBottom: `1px solid ${theme.border}`,
-                        }}
-                      >
-                        <div
-                          style={{
-                            fontSize: 11,
-                            fontWeight: 800,
-                            textTransform: "uppercase",
-                            letterSpacing: "0.08em",
-                            color: theme.textMuted,
-                          }}
-                        >
-                          {label}
-                        </div>
-                        <div style={{ color: theme.text, fontSize: 14, lineHeight: 1.5 }}>
-                          {value || "—"}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                      {[
+                        ["Mobile", selectedStakeholder.mobile],
+                        ["Office No.", selectedStakeholder.officeNo],
+                        ["Email", selectedStakeholder.email],
+                        ["Relationship Manager", selectedStakeholder.relManager],
+                        ["Influence", selectedStakeholder.influence],
+                        ["Interest", selectedStakeholder.interest],
+                        ["Priority", selectedStakeholder.priority],
+                        ["Last Interaction", selectedStakeholder.lastInteraction],
+                        ["Next Action Date", selectedStakeholder.nextActionDate],
+                        ["Next Action", selectedStakeholder.nextAction],
+                      ].map(([label, value]) => (
+                        <DetailRow key={label} label={label} value={value} />
+                      ))}
+                    </div>
                   </div>
 
                   <div
@@ -1494,7 +1842,7 @@ export default function StakeholderDashboard() {
                       Notes
                     </div>
                     <div style={{ color: theme.textSecondary, fontSize: 14, lineHeight: 1.7 }}>
-                      {selectedStakeholder.notes || "No notes added yet."}
+                      {selectedStakeholder.notes || "No notes"}
                     </div>
                   </div>
 
@@ -1540,8 +1888,7 @@ export default function StakeholderDashboard() {
               </>
             ) : (
               <div style={{ padding: 28, color: theme.textMuted }}>
-                Select a stakeholder from the list to open the contact card. Nothing is pinned to
-                the spotlight by default.
+                Select a stakeholder to view the card.
               </div>
             )}
           </div>

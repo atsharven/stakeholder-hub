@@ -191,6 +191,24 @@ Search behavior is now more reliable:
 - Phone matching no longer incorrectly matches every row for non-phone queries.
 - Result ordering is query-aware and prioritizes stronger matches before falling back to priority and name sorting.
 
+## Login Shell Notes
+
+A lightweight login screen shell now exists before the dashboard.
+
+Current behavior:
+
+- User enters name and optionally phone/email.
+- Session is stored locally in browser storage.
+- Login is currently front-end only and acts as a workspace gate.
+- This is intentionally a placeholder foundation for future user-detail storage and possible permissions.
+
+Not yet implemented:
+
+- Real authentication
+- Backend user persistence
+- Role-based access
+- Audit/activity tracking
+
 ## Interaction Notes
 
 Current keyboard behavior:
@@ -216,6 +234,25 @@ The current intended hierarchy is:
 5. Optional metrics and insights
 
 This should remain the default unless the user explicitly wants a more analytics-led experience.
+
+## Optional Insights and Quality Signals
+
+Optional insights currently include:
+
+- Engagement coverage
+- Notes coverage
+- Next-action coverage
+- Position mix mini chart
+- State spread mini chart
+
+Data quality signals currently include:
+
+- Missing both phone and email
+- Possible duplicate identity rows
+- Repeated phone numbers
+- Repeated email addresses
+
+These are intentionally secondary and should stay optional rather than dominating the default workspace.
 
 Implementation approach:
 
