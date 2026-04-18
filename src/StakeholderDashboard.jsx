@@ -160,9 +160,9 @@ export default function StakeholderDashboard() {
 
   const surfaceStyle = {
     background: theme.card,
-    border: `1px solid ${theme.border}`,
-    borderRadius: 20,
-    boxShadow: isDark ? "0 20px 40px rgba(0,0,0,0.22)" : "0 18px 36px rgba(15, 23, 42, 0.06)",
+    border: `1px solid ${isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.08)"}`,
+    borderRadius: 24,
+    boxShadow: isDark ? "0 16px 34px rgba(0,0,0,0.18)" : "0 14px 30px rgba(15, 23, 42, 0.05)",
   };
 
   const getCategoryColor = (value) =>
@@ -354,12 +354,14 @@ export default function StakeholderDashboard() {
     ).length;
 
     const withNotes = filteredStakeholders.filter((item) => item.notes).length;
-    const missingContactCount = filteredStakeholders.filter(
-      (item) => !item.mobile && !item.officeNo && !item.email,
-    ).length;
     const nextActionReady = filteredStakeholders.filter(
       (item) => item.nextAction || item.nextActionDate,
     ).length;
+    const contactReady = filteredStakeholders.filter(
+      (item) => item.mobile || item.officeNo || item.email,
+    ).length;
+    const supportiveCount = filteredStakeholders.filter((item) => item.position === "Supportive").length;
+    const resistantCount = filteredStakeholders.filter((item) => item.position === "Resistant").length;
 
     return {
       engagementRate:
@@ -371,7 +373,12 @@ export default function StakeholderDashboard() {
         filteredStakeholders.length > 0
           ? Math.round((nextActionReady / filteredStakeholders.length) * 100)
           : 0,
-      missingContactCount,
+      contactReadyRate:
+        filteredStakeholders.length > 0
+          ? Math.round((contactReady / filteredStakeholders.length) * 100)
+          : 0,
+      supportiveCount,
+      resistantCount,
       positions: Object.entries(positionCounts).sort((a, b) => b[1] - a[1]).slice(0, 4),
       states: Object.entries(stateCounts).sort((a, b) => b[1] - a[1]).slice(0, 4),
     };
@@ -421,8 +428,18 @@ export default function StakeholderDashboard() {
     };
   }, [filteredStakeholders]);
 
-  const hasDuplicateIdentity = (item) =>
-    filteredStakeholders.filter((candidate) => createIdentityKey(candidate) === createIdentityKey(item)).length > 1;
+  const duplicateIdentityKeys = useMemo(() => {
+    const counts = new Map();
+    filteredStakeholders.forEach((item) => {
+      const key = createIdentityKey(item);
+      if (key) {
+        counts.set(key, (counts.get(key) || 0) + 1);
+      }
+    });
+    return new Set([...counts.entries()].filter(([, count]) => count > 1).map(([key]) => key));
+  }, [filteredStakeholders]);
+
+  const hasDuplicateIdentity = (item) => duplicateIdentityKeys.has(createIdentityKey(item));
 
   const handleCopy = async (value, label) => {
     const copied = await copyText(value);
@@ -603,13 +620,34 @@ export default function StakeholderDashboard() {
     </div>
   );
 
+  const InsightCard = ({ label, value, subtext }) => (
+    <div
+      style={{
+        padding: "14px 0",
+        borderRadius: 0,
+        border: "none",
+        borderBottom: `1px solid ${theme.border}`,
+        background: "transparent",
+        display: "grid",
+        gap: 4,
+      }}
+    >
+      <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", color: theme.textMuted }}>
+        {label}
+      </div>
+      <div style={{ fontSize: 28, fontWeight: 900, color: theme.text }}>{value}</div>
+      {subtext ? <div style={{ fontSize: 12, color: theme.textSecondary }}>{subtext}</div> : null}
+    </div>
+  );
+
   const MiniChart = ({ title, entries, colorGetter }) => (
     <div
       style={{
-        padding: 18,
-        borderRadius: 16,
-        background: theme.surface,
+        padding: 20,
+        borderRadius: 24,
+        background: isDark ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.76)",
         border: `1px solid ${theme.border}`,
+        backdropFilter: "blur(14px)",
       }}
     >
       <div
@@ -692,6 +730,27 @@ export default function StakeholderDashboard() {
       </div>
       <div style={{ color: theme.text, fontSize: 14, lineHeight: 1.5 }}>{value || "—"}</div>
     </div>
+  );
+
+  const UtilityButton = ({ onClick, children, title }) => (
+    <button
+      onClick={onClick}
+      title={title}
+      style={{
+        height: 36,
+        width: 36,
+        borderRadius: 999,
+        border: `1px solid ${theme.border}`,
+        background: isDark ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.82)",
+        color: theme.text,
+        display: "grid",
+        placeItems: "center",
+        cursor: "pointer",
+        backdropFilter: "blur(10px)",
+      }}
+    >
+      {children}
+    </button>
   );
 
   const handleSearchKeyDown = (event) => {
@@ -1006,8 +1065,9 @@ export default function StakeholderDashboard() {
             ...surfaceStyle,
             padding: "24px clamp(18px, 3vw, 32px)",
             background: isDark
-              ? "linear-gradient(135deg, rgba(31,31,31,1) 0%, rgba(22,22,22,1) 100%)"
-              : "linear-gradient(135deg, rgba(255,255,255,1) 0%, rgba(248,250,252,1) 100%)",
+              ? "linear-gradient(135deg, rgba(30,30,30,0.94) 0%, rgba(22,22,22,0.9) 100%)"
+              : "linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(247,250,245,0.86) 100%)",
+            backdropFilter: "blur(16px)",
           }}
         >
           <div
@@ -1052,24 +1112,53 @@ export default function StakeholderDashboard() {
             </p>
           </div>
 
-            <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-              <div
-                style={{
-                  height: 42,
-                  padding: "0 14px",
-                  borderRadius: 12,
-                  border: `1px solid ${theme.border}`,
-                  background: theme.surface,
-                  color: theme.text,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
-                  fontWeight: 700,
-                }}
-              >
-                <UserRound size={16} />
-                {session.name}
-              </div>
+            <div
+              style={{
+                display: "flex",
+                gap: 10,
+                alignItems: "center",
+                flexWrap: "wrap",
+                justifyContent: "flex-end",
+              }}
+            >
+              <UtilityButton onClick={handleRefresh} title={refreshing ? "Refreshing" : "Refresh"}>
+                <RefreshCw size={15} style={{ opacity: 0.85 }} />
+              </UtilityButton>
+
+              <UtilityButton onClick={toggleTheme} title="Toggle theme">
+                {isDark ? <Sun size={15} /> : <Moon size={15} />}
+              </UtilityButton>
+              <UtilityButton onClick={handleLogout} title="Logout">
+                <LogOut size={15} />
+              </UtilityButton>
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+              flexWrap: "wrap",
+              marginBottom: 14,
+            }}
+          >
+            <div
+              style={{
+                color: theme.textSecondary,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                fontWeight: 700,
+                fontSize: 13,
+              }}
+            >
+              <UserRound size={16} />
+              {session.name}
+            </div>
+
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               <ToggleButton
                 active={showSummary}
                 onClick={() => setShowSummary((value) => !value)}
@@ -1082,63 +1171,6 @@ export default function StakeholderDashboard() {
                 label="Insights"
                 icon={<BarChart3 size={16} />}
               />
-              <button
-                onClick={handleRefresh}
-                disabled={refreshing}
-                style={{
-                  height: 42,
-                  padding: "0 16px",
-                  borderRadius: 12,
-                  border: `1px solid ${theme.border}`,
-                  background: theme.surface,
-                  color: theme.text,
-                  fontWeight: 700,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
-                  cursor: refreshing ? "wait" : "pointer",
-                }}
-              >
-                <RefreshCw size={16} style={{ opacity: 0.85 }} />
-                {refreshing ? "Refreshing..." : "Refresh"}
-              </button>
-
-              <button
-                onClick={toggleTheme}
-                style={{
-                  height: 42,
-                  width: 42,
-                  borderRadius: 12,
-                  border: `1px solid ${theme.border}`,
-                  background: theme.surface,
-                  color: theme.text,
-                  display: "grid",
-                  placeItems: "center",
-                  cursor: "pointer",
-                }}
-                title="Toggle theme"
-              >
-                {isDark ? <Sun size={18} /> : <Moon size={18} />}
-              </button>
-              <button
-                onClick={handleLogout}
-                style={{
-                  height: 42,
-                  padding: "0 14px",
-                  borderRadius: 12,
-                  border: `1px solid ${theme.border}`,
-                  background: theme.surface,
-                  color: theme.text,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
-                  cursor: "pointer",
-                  fontWeight: 700,
-                }}
-              >
-                <LogOut size={16} />
-                Logout
-              </button>
             </div>
           </div>
 
@@ -1155,10 +1187,11 @@ export default function StakeholderDashboard() {
                 alignItems: "center",
                 gap: 12,
                 height: 56,
-                borderRadius: 16,
+                borderRadius: 999,
                 border: `1px solid ${theme.border}`,
-                background: theme.bg,
-                padding: "0 16px",
+                background: isDark ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.78)",
+                padding: "0 18px",
+                backdropFilter: "blur(10px)",
               }}
             >
               <Search size={18} style={{ color: theme.textMuted }} />
@@ -1205,8 +1238,8 @@ export default function StakeholderDashboard() {
                 }}
               >
                 <span>{summary.shown} shown</span>
-                <span>{summary.withPhone} with phone</span>
-                <span>{summary.withEmail} with email</span>
+                <span>{summary.highPriority} high priority</span>
+                <span>{insightMetrics.contactReadyRate}% contact ready</span>
               </div>
             )}
           </div>
@@ -1225,7 +1258,9 @@ export default function StakeholderDashboard() {
                 ...surfaceStyle,
                 padding: 18,
                 display: "grid",
-                gap: 12,
+                gap: 8,
+                background: isDark ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.78)",
+                backdropFilter: "blur(12px)",
               }}
             >
               <div
@@ -1237,18 +1272,35 @@ export default function StakeholderDashboard() {
                   color: theme.textMuted,
                 }}
               >
-                Optional Insights
+                Useful Signals
               </div>
-              <div style={{ display: "grid", gap: 8 }}>
-                <div style={{ fontSize: 28, fontWeight: 900 }}>{insightMetrics.engagementRate}%</div>
-                <div style={{ color: theme.textSecondary, fontSize: 14 }}>
-                  Engagement coverage based on last interaction or next-action data.
-                </div>
-              </div>
-              <div style={{ display: "grid", gap: 8, color: theme.textSecondary, fontSize: 14 }}>
-                <div>{insightMetrics.withNotes} stakeholders have notes</div>
-                <div>{summary.highPriority} marked high priority</div>
-                <div>{insightMetrics.nextActionRate}% have next actions logged</div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+                  gap: 16,
+                }}
+              >
+                <InsightCard
+                  label="ENGAGEMENT"
+                  value={`${insightMetrics.engagementRate}%`}
+                  subtext="last interaction or next action"
+                />
+                <InsightCard
+                  label="CONTACT READY"
+                  value={`${insightMetrics.contactReadyRate}%`}
+                  subtext="phone or email available"
+                />
+                <InsightCard
+                  label="NEXT ACTION"
+                  value={`${insightMetrics.nextActionRate}%`}
+                  subtext="follow-up fields present"
+                />
+                <InsightCard
+                  label="HIGH PRIORITY"
+                  value={summary.highPriority}
+                  subtext={`${insightMetrics.supportiveCount} supportive / ${insightMetrics.resistantCount} resistant`}
+                />
               </div>
             </div>
 
@@ -1268,6 +1320,8 @@ export default function StakeholderDashboard() {
                 padding: 18,
                 display: "grid",
                 gap: 12,
+                background: isDark ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.78)",
+                backdropFilter: "blur(12px)",
               }}
             >
               <div
@@ -1282,10 +1336,10 @@ export default function StakeholderDashboard() {
                 Data Quality
               </div>
               <div style={{ display: "grid", gap: 8, color: theme.textSecondary, fontSize: 14 }}>
-                <div>{dataQuality.incompleteContacts} records missing both phone and email</div>
-                <div>{dataQuality.duplicateIdentity} possible duplicate people/org entries</div>
+                <div>{dataQuality.duplicateIdentity} possible duplicate entries</div>
                 <div>{dataQuality.duplicatePhone} repeated phone numbers</div>
                 <div>{dataQuality.duplicateEmail} repeated email addresses</div>
+                <div>{dataQuality.incompleteContacts} missing all contact info</div>
               </div>
             </div>
           </section>
@@ -1452,6 +1506,7 @@ export default function StakeholderDashboard() {
                   const active = item.id === selectedId;
                   const isHighlighted =
                     filteredStakeholders[highlightedIndex] && filteredStakeholders[highlightedIndex].id === item.id;
+                  const contactInfo = [item.mobile || item.officeNo, item.email].filter(Boolean);
 
                   return (
                     <button
@@ -1464,12 +1519,19 @@ export default function StakeholderDashboard() {
                         background: active
                           ? `${theme.primary}10`
                           : isHighlighted
-                            ? theme.surface
+                            ? (isDark ? "rgba(255,255,255,0.035)" : "rgba(255,255,255,0.78)")
                             : "transparent",
-                        borderRadius: 16,
-                        padding: 16,
+                        borderRadius: 18,
+                        padding: "16px 16px 14px",
                         marginBottom: 10,
                         cursor: "pointer",
+                        transition: "transform 0.16s ease, border-color 0.16s ease, background 0.16s ease",
+                      }}
+                      onMouseEnter={(event) => {
+                        event.currentTarget.style.transform = "translateY(-1px)";
+                      }}
+                      onMouseLeave={(event) => {
+                        event.currentTarget.style.transform = "translateY(0)";
                       }}
                     >
                       <div
@@ -1523,52 +1585,30 @@ export default function StakeholderDashboard() {
 
                       <div
                         style={{
-                          display: "grid",
-                          gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-                          gap: 10,
+                          display: "flex",
+                          flexWrap: "wrap",
+                          gap: 8,
                           marginTop: 14,
                           fontSize: 13,
                         }}
                       >
-                        <div
-                          style={{
-                            color: item.mobile || item.officeNo ? theme.textSecondary : theme.textMuted,
-                            padding: "8px 10px",
-                            borderRadius: 12,
-                            background: theme.surface,
-                            border: `1px solid ${theme.border}`,
-                          }}
-                        >
-                          <div style={{ fontSize: 11, fontWeight: 800, marginBottom: 4 }}>
-                            PHONE
+                        {contactInfo.map((value) => (
+                          <div
+                            key={value}
+                            style={{
+                              color: theme.textSecondary,
+                              padding: "6px 10px",
+                              borderRadius: 999,
+                              background: isDark ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.76)",
+                              border: `1px solid ${theme.border}`,
+                            }}
+                          >
+                            {renderHighlightedText(value)}
                           </div>
-                          <div>
-                            {item.mobile || item.officeNo ? (
-                              renderHighlightedText(item.mobile || item.officeNo)
-                            ) : (
-                              "No phone listed"
-                            )}
-                          </div>
-                        </div>
-                        <div
-                          style={{
-                            color: item.email ? theme.textSecondary : theme.textMuted,
-                            padding: "8px 10px",
-                            borderRadius: 12,
-                            background: theme.surface,
-                            border: `1px solid ${theme.border}`,
-                          }}
-                        >
-                          <div style={{ fontSize: 11, fontWeight: 800, marginBottom: 4 }}>
-                            EMAIL
-                          </div>
-                          <div>
-                            {item.email ? renderHighlightedText(item.email) : "No email listed"}
-                          </div>
-                        </div>
+                        ))}
                       </div>
 
-                      {((!item.mobile && !item.officeNo) || !item.email || hasDuplicateIdentity(item)) ? (
+                      {hasDuplicateIdentity(item) ? (
                         <div
                           style={{
                             display: "flex",
@@ -1577,30 +1617,21 @@ export default function StakeholderDashboard() {
                             marginTop: 10,
                           }}
                         >
-                          {!item.mobile && !item.officeNo && renderBadge("Missing phone", theme.danger)}
-                          {!item.email && renderBadge("Missing email", theme.warning)}
-                          {hasDuplicateIdentity(item) ? renderBadge("Possible duplicate", theme.warning) : null}
+                          {renderBadge("Possible duplicate", theme.warning)}
                         </div>
                       ) : null}
                       
-                      <div
-                        style={{
-                          marginTop: 10,
-                          fontSize: 12,
-                          color: theme.textMuted,
-                          display: "flex",
-                          justifyContent: "space-between",
-                          gap: 8,
-                          flexWrap: "wrap",
-                        }}
-                      >
-                        <span>
-                          Manager: {item.relManager ? renderHighlightedText(item.relManager) : "—"}
-                        </span>
-                        <span>
-                          Next: {item.nextActionDate ? renderHighlightedText(item.nextActionDate) : "—"}
-                        </span>
-                      </div>
+                      {item.nextActionDate || item.nextAction ? (
+                        <div
+                          style={{
+                            marginTop: 10,
+                            fontSize: 12,
+                            color: theme.textMuted,
+                          }}
+                        >
+                          {item.nextActionDate || item.nextAction}
+                        </div>
+                      ) : null}
                     </button>
                   );
                 })
@@ -1658,9 +1689,9 @@ export default function StakeholderDashboard() {
                       onClick={() => togglePinned(selectedStakeholder.id)}
                       style={{
                         border: `1px solid ${theme.border}`,
-                        background: theme.surface,
+                        background: isDark ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.76)",
                         color: pinnedIds.includes(selectedStakeholder.id) ? theme.warning : theme.text,
-                        borderRadius: 12,
+                        borderRadius: 999,
                         padding: "10px 14px",
                         fontWeight: 800,
                         cursor: "pointer",
@@ -1675,8 +1706,8 @@ export default function StakeholderDashboard() {
                   <div
                     style={{
                       padding: 16,
-                      borderRadius: 16,
-                      background: theme.surface,
+                      borderRadius: 22,
+                      background: isDark ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.72)",
                       border: `1px solid ${theme.border}`,
                     }}
                   >
@@ -1704,7 +1735,7 @@ export default function StakeholderDashboard() {
                         href={`tel:${selectedStakeholder.mobile}`}
                         style={{
                           height: 44,
-                          borderRadius: 12,
+                          borderRadius: 999,
                           background: theme.primary,
                           color: isDark ? "#101214" : "#ffffff",
                           display: "inline-flex",
@@ -1725,9 +1756,9 @@ export default function StakeholderDashboard() {
                         href={`mailto:${selectedStakeholder.email}`}
                         style={{
                           height: 44,
-                          borderRadius: 12,
+                          borderRadius: 999,
                           border: `1px solid ${theme.border}`,
-                          background: theme.surface,
+                          background: isDark ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.76)",
                           color: theme.text,
                           display: "inline-flex",
                           alignItems: "center",
@@ -1752,9 +1783,9 @@ export default function StakeholderDashboard() {
                         }
                         style={{
                           height: 44,
-                          borderRadius: 12,
+                          borderRadius: 999,
                           border: `1px solid ${theme.border}`,
-                          background: theme.surface,
+                          background: isDark ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.76)",
                           color: theme.text,
                           display: "inline-flex",
                           alignItems: "center",
@@ -1786,8 +1817,8 @@ export default function StakeholderDashboard() {
                   <div
                     style={{
                       padding: 18,
-                      borderRadius: 16,
-                      background: theme.surface,
+                      borderRadius: 22,
+                      background: isDark ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.72)",
                       border: `1px solid ${theme.border}`,
                     }}
                   >
@@ -1808,24 +1839,57 @@ export default function StakeholderDashboard() {
                         ["Mobile", selectedStakeholder.mobile],
                         ["Office No.", selectedStakeholder.officeNo],
                         ["Email", selectedStakeholder.email],
-                        ["Relationship Manager", selectedStakeholder.relManager],
                         ["Influence", selectedStakeholder.influence],
                         ["Interest", selectedStakeholder.interest],
                         ["Priority", selectedStakeholder.priority],
                         ["Last Interaction", selectedStakeholder.lastInteraction],
-                        ["Next Action Date", selectedStakeholder.nextActionDate],
-                        ["Next Action", selectedStakeholder.nextAction],
                       ].map(([label, value]) => (
                         <DetailRow key={label} label={label} value={value} />
                       ))}
                     </div>
                   </div>
 
+                  {(selectedStakeholder.nextActionDate || selectedStakeholder.nextAction) && (
+                    <div
+                      style={{
+                        padding: 18,
+                        borderRadius: 22,
+                        background: isDark ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.72)",
+                        border: `1px solid ${theme.border}`,
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 800,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.08em",
+                          color: theme.textMuted,
+                          marginBottom: 10,
+                        }}
+                      >
+                        Next Action
+                      </div>
+                      <div style={{ display: "grid", gap: 10 }}>
+                        {selectedStakeholder.nextActionDate ? (
+                          <div style={{ color: theme.text, fontSize: 14 }}>
+                            {selectedStakeholder.nextActionDate}
+                          </div>
+                        ) : null}
+                        {selectedStakeholder.nextAction ? (
+                          <div style={{ color: theme.textSecondary, fontSize: 14, lineHeight: 1.6 }}>
+                            {selectedStakeholder.nextAction}
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  )}
+
                   <div
                     style={{
                       padding: 18,
-                      borderRadius: 16,
-                      background: theme.surface,
+                      borderRadius: 22,
+                      background: isDark ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.72)",
                       border: `1px solid ${theme.border}`,
                     }}
                   >
