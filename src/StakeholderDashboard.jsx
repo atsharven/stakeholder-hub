@@ -1328,80 +1328,69 @@ export default function StakeholderDashboard() {
               <div style={{ flex: 1, height: "1px", background: theme.border }} />
             </div>
 
-            <div style={{ display: "grid", gap: 10 }}>
+            {!useManualLogin && googleLoaded ? (
+              <>
+                <div
+                  id="google-signin-button"
+                  style={{
+                    display: "flex",
+                    justifyContent: "center",
+                    minHeight: 48,
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setUseManualLogin(true)}
+                  style={{
+                    height: 48,
+                    borderRadius: 14,
+                    border: `1px solid ${theme.border}`,
+                    background: "transparent",
+                    color: theme.textSecondary,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    fontSize: 14,
+                    transition: "all 0.2s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.02)";
+                    e.currentTarget.style.color = theme.text;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "transparent";
+                    e.currentTarget.style.color = theme.textSecondary;
+                  }}
+                >
+                  Use manual login instead
+                </button>
+              </>
+            ) : useManualLogin ? (
               <button
                 type="button"
-                onClick={() => handleSocialLogin("google", "")}
+                onClick={() => setUseManualLogin(false)}
                 style={{
                   height: 48,
                   borderRadius: 14,
-                  border: `2px solid ${theme.border}`,
-                  background: theme.surface,
-                  color: theme.text,
-                  fontWeight: 700,
+                  border: `1px solid ${theme.border}`,
+                  background: "transparent",
+                  color: theme.textSecondary,
+                  fontWeight: 600,
                   cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 10,
-                  transition: "all 0.2s ease",
                   fontSize: 14,
+                  transition: "all 0.2s ease",
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = "#4285F4";
-                  e.currentTarget.style.boxShadow = "0 0 0 2px rgba(66,133,244,0.15)";
-                  e.currentTarget.style.transform = "translateY(-2px)";
+                  e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.02)";
+                  e.currentTarget.style.color = theme.text;
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = theme.border;
-                  e.currentTarget.style.boxShadow = "none";
-                  e.currentTarget.style.transform = "translateY(0)";
+                  e.currentTarget.style.background = "transparent";
+                  e.currentTarget.style.color = theme.textSecondary;
                 }}
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10" />
-                  <path d="M8 14s1.5 2 4 2 4-2 4-2" />
-                  <circle cx="9" cy="9" r="1" />
-                  <circle cx="15" cy="9" r="1" />
-                </svg>
-                Continue with Google
+                Back to Google Sign-In
               </button>
-
-              <button
-                type="button"
-                onClick={() => handleSocialLogin("facebook", "")}
-                style={{
-                  height: 48,
-                  borderRadius: 14,
-                  border: `2px solid ${theme.border}`,
-                  background: theme.surface,
-                  color: theme.text,
-                  fontWeight: 700,
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 10,
-                  transition: "all 0.2s ease",
-                  fontSize: 14,
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = "#1877F2";
-                  e.currentTarget.style.boxShadow = "0 0 0 2px rgba(24,119,242,0.15)";
-                  e.currentTarget.style.transform = "translateY(-2px)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = theme.border;
-                  e.currentTarget.style.boxShadow = "none";
-                  e.currentTarget.style.transform = "translateY(0)";
-                }}
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M18 2h-3a6 6 0 0 0-6 6v4h-2v4h2v6h4v-6h3l1-4h-4V8a2 2 0 0 1 2-2h1z" />
-                </svg>
-                Continue with Facebook
-              </button>
-            </div>
+            ) : null}
           </form>
         </div>
       </div>
