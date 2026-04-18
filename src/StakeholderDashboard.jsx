@@ -478,6 +478,30 @@ export default function StakeholderDashboard() {
     );
   };
 
+  const cardStyle = {
+    padding: 18,
+    borderRadius: 22,
+    background: isDark ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.72)",
+    border: `1px solid ${theme.border}`,
+  };
+
+  const labelStyle = {
+    fontSize: 11,
+    fontWeight: 800,
+    textTransform: "uppercase",
+    letterSpacing: "0.08em",
+    color: theme.textMuted,
+  };
+
+  const contactInfoStyle = {
+    fontSize: 15,
+    color: theme.text,
+    fontWeight: 600,
+    fontFamily: "monospace",
+    wordBreak: "break-all",
+    overflowWrap: "break-word",
+  };
+
   const renderHighlightedText = (value) => {
     const text = String(value || "");
     const query = searchQuery.trim();
@@ -949,13 +973,10 @@ export default function StakeholderDashboard() {
 
           <div
             style={{
-              padding: 18,
-              borderRadius: 22,
-              background: isDark ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.72)",
-              border: `1px solid ${theme.border}`,
+              ...cardStyle,
             }}
           >
-            <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: theme.textMuted, marginBottom: 12 }}>
+            <div style={{ ...labelStyle, marginBottom: 12 }}>
               Quick Actions
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
@@ -1019,32 +1040,29 @@ export default function StakeholderDashboard() {
 
           <div
             style={{
-              padding: 18,
-              borderRadius: 22,
-              background: isDark ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.72)",
-              border: `1px solid ${theme.border}`,
+              ...cardStyle,
             }}
           >
-            <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: theme.textMuted, marginBottom: 12 }}>
+            <div style={{ ...labelStyle, marginBottom: 12 }}>
               Contact Information
             </div>
             <div style={{ display: "grid", gap: 14 }}>
               {stakeholder.mobile && (
                 <div>
                   <div style={{ fontSize: 11, color: theme.textMuted, marginBottom: 4 }}>Mobile</div>
-                  <div style={{ fontSize: 15, color: theme.text, fontWeight: 600, fontFamily: "monospace" }}>{stakeholder.mobile}</div>
+                  <div style={contactInfoStyle}>{stakeholder.mobile}</div>
                 </div>
               )}
               {stakeholder.officeNo && (
                 <div>
                   <div style={{ fontSize: 11, color: theme.textMuted, marginBottom: 4 }}>Office</div>
-                  <div style={{ fontSize: 15, color: theme.text, fontWeight: 600, fontFamily: "monospace" }}>{stakeholder.officeNo}</div>
+                  <div style={contactInfoStyle}>{stakeholder.officeNo}</div>
                 </div>
               )}
               {stakeholder.email && (
                 <div>
                   <div style={{ fontSize: 11, color: theme.textMuted, marginBottom: 4 }}>Email</div>
-                  <div style={{ fontSize: 15, color: theme.text, fontWeight: 600, fontFamily: "monospace" }}>{stakeholder.email}</div>
+                  <div style={contactInfoStyle}>{stakeholder.email}</div>
                 </div>
               )}
             </div>
@@ -1629,11 +1647,6 @@ export default function StakeholderDashboard() {
                 }}
               >
                 <InsightCard
-                  label="ENGAGEMENT"
-                  value={`${insightMetrics.engagementRate}%`}
-                  subtext="last interaction or next action"
-                />
-                <InsightCard
                   label="CONTACT READY"
                   value={`${insightMetrics.contactReadyRate}%`}
                   subtext="phone or email available"
@@ -1643,52 +1656,55 @@ export default function StakeholderDashboard() {
                   value={`${insightMetrics.nextActionRate}%`}
                   subtext="follow-up fields present"
                 />
-                <InsightCard
-                  label="HIGH PRIORITY"
-                  value={summary.highPriority}
-                  subtext={`${insightMetrics.supportiveCount} supportive / ${insightMetrics.resistantCount} resistant`}
-                />
               </div>
             </div>
 
-            <MiniChart
-              title="Position Mix"
-              entries={insightMetrics.positions}
-              colorGetter={getPositionColor}
-            />
-            <MiniChart
-              title="State Spread"
-              entries={insightMetrics.states}
-              colorGetter={() => theme.primary}
-            />
-            <div
-              style={{
-                ...surfaceStyle,
-                padding: 18,
-                display: "grid",
-                gap: 12,
-                background: isDark ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.78)",
-                backdropFilter: "blur(12px)",
-              }}
-            >
+            {insightMetrics.states && insightMetrics.states.length > 0 && (
+              <MiniChart
+                title="State Spread"
+                entries={insightMetrics.states}
+                colorGetter={() => theme.primary}
+              />
+            )}
+
+            {dataQuality.duplicateIdentity > 0 || dataQuality.duplicatePhone > 0 || dataQuality.duplicateEmail > 0 || dataQuality.incompleteContacts > 0 ? (
               <div
                 style={{
-                  fontSize: 11,
-                  fontWeight: 800,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.08em",
-                  color: theme.textMuted,
+                  ...surfaceStyle,
+                  padding: 18,
+                  display: "grid",
+                  gap: 10,
+                  background: isDark ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.78)",
+                  backdropFilter: "blur(12px)",
                 }}
               >
-                Data Quality
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 800,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                    color: theme.textMuted,
+                  }}
+                >
+                  Data Notes
+                </div>
+                <div style={{ display: "grid", gap: 6, color: theme.textSecondary, fontSize: 13 }}>
+                  {dataQuality.duplicateIdentity > 0 && (
+                    <div>⚠️ {dataQuality.duplicateIdentity} possible duplicates</div>
+                  )}
+                  {dataQuality.duplicatePhone > 0 && (
+                    <div>📞 {dataQuality.duplicatePhone} shared phone numbers</div>
+                  )}
+                  {dataQuality.duplicateEmail > 0 && (
+                    <div>✉️ {dataQuality.duplicateEmail} shared emails</div>
+                  )}
+                  {dataQuality.incompleteContacts > 0 && (
+                    <div>❌ {dataQuality.incompleteContacts} missing contact info</div>
+                  )}
+                </div>
               </div>
-              <div style={{ display: "grid", gap: 8, color: theme.textSecondary, fontSize: 14 }}>
-                <div>{dataQuality.duplicateIdentity} possible duplicate entries</div>
-                <div>{dataQuality.duplicatePhone} repeated phone numbers</div>
-                <div>{dataQuality.duplicateEmail} repeated email addresses</div>
-                <div>{dataQuality.incompleteContacts} missing all contact info</div>
-              </div>
-            </div>
+            ) : null}
           </section>
         )}
 
