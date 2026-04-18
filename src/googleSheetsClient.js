@@ -1,72 +1,97 @@
 import { GOOGLE_SHEET_CONFIG, COLUMN_NAMES } from './config'
 
-// CSV line parser - handles quoted fields with commas
-const parseCSVLine = (line) => {
-  const cells = [];
-  let current = '';
+const normalizeCell = (value) =>
+  String(value || '')
+    .replace(/^\uFEFF/, '')
+    .replace(/\r/g, '')
+    .trim();
+
+const parseCSVRows = (csvText) => {
+  const rows = [];
+  let row = [];
+  let cell = '';
   let insideQuotes = false;
-  
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
-    const nextChar = line[i + 1];
-    
+
+  for (let i = 0; i < csvText.length; i++) {
+    const char = csvText[i];
+    const nextChar = csvText[i + 1];
+
     if (char === '"') {
       if (insideQuotes && nextChar === '"') {
-        // Escaped quote
-        current += '"';
+        cell += '"';
         i++;
       } else {
-        // Toggle quote state
         insideQuotes = !insideQuotes;
       }
-    } else if (char === ',' && !insideQuotes) {
-      // Field separator
-      cells.push(current.trim());
-      current = '';
-    } else {
-      current += char;
+      continue;
     }
+
+    if (char === ',' && !insideQuotes) {
+      row.push(normalizeCell(cell));
+      cell = '';
+      continue;
+    }
+
+    if ((char === '\n' || char === '\r') && !insideQuotes) {
+      if (char === '\r' && nextChar === '\n') {
+        i++;
+      }
+      row.push(normalizeCell(cell));
+      const hasContent = row.some((entry) => entry !== '');
+      if (hasContent) rows.push(row);
+      row = [];
+      cell = '';
+      continue;
+    }
+
+    cell += char;
   }
-  cells.push(current.trim());
-  return cells;
+
+  if (cell.length > 0 || row.length > 0) {
+    row.push(normalizeCell(cell));
+    if (row.some((entry) => entry !== '')) rows.push(row);
+  }
+
+  return rows;
 };
 
 const parseCSV = (csvText) => {
-  const lines = csvText.split('\n');
-  if (lines.length < 2) throw new Error('Empty data');
-  
-  const headers = parseCSVLine(lines[0]);
+  const rowsData = parseCSVRows(csvText);
+  if (rowsData.length < 2) throw new Error('Empty data');
+
+  const headers = rowsData[0].map(normalizeCell);
   const rows = [];
   let skipped = 0;
-  
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i];
-    if (!line.trim()) continue;
-    
-    const cells = parseCSVLine(line);
+
+  for (let i = 1; i < rowsData.length; i++) {
+    const cells = rowsData[i];
     const row = {};
-    headers.forEach((h, idx) => row[h] = cells[idx] || '');
-    
+    headers.forEach((h, idx) => {
+      row[h] = normalizeCell(cells[idx] || '');
+    });
+
     // Validation: Skip rows with empty ID (primary key)
     const id = row[COLUMN_NAMES.id]?.trim();
     if (!id) {
       skipped++;
       continue;
     }
-    
+
     // Only add if has at least one non-empty value (already has valid ID)
     if (Object.values(row).some(v => v && v.trim())) rows.push(row);
   }
-  
+
   if (skipped > 0) console.log(`  ⚠ Skipped ${skipped} rows with missing ID`);
-  
+
   return rows;
 };
+
+const normalizeTextValue = (value) => normalizeCell(value).replace(/\s+/g, ' ');
 
 const mapRow = (row, rowIndex, sheetState) => {
   // Keep state as-is from config (no normalization)
   // State value from sheet is used for validation, but we use configured state name
-  const stateValue = row[COLUMN_NAMES.state] || '';
+  const stateValue = normalizeTextValue(row[COLUMN_NAMES.state] || '');
   
   // Sanitize state: if it's not a valid configured state name, use the configured state
   const validStates = GOOGLE_SHEET_CONFIG.getAllStateNames();
@@ -76,32 +101,32 @@ const mapRow = (row, rowIndex, sheetState) => {
     : (sheetState || 'Unknown');
   
   return {
-    id: row[COLUMN_NAMES.id] || '',
+    id: normalizeTextValue(row[COLUMN_NAMES.id] || ''),
     state: finalState,
-    name: row[COLUMN_NAMES.name] || '',
-    organization: row[COLUMN_NAMES.organization] || '',
-    designation: row[COLUMN_NAMES.designation] || '',
-    category: row[COLUMN_NAMES.category] || '', // Sector (org type like Regulatory Body, Public Utility)
-    mobile: row[COLUMN_NAMES.mobile] || '',
-    officeNo: row[COLUMN_NAMES.officeNo] || '',
-    email: row[COLUMN_NAMES.email] || '',
-    influence: row[COLUMN_NAMES.influence] || '',
-    interest: row[COLUMN_NAMES.interest] || '',
-    position: row[COLUMN_NAMES.position] || '',
-    sentiment: row[COLUMN_NAMES.sentiment] || '',
-    priority: row[COLUMN_NAMES.priority] || '',
-    relManager: row[COLUMN_NAMES.relManager] || '',
-    lastInteraction: row[COLUMN_NAMES.lastInteraction] || '',
-    nextActionDate: row[COLUMN_NAMES.nextActionDate] || '',
-    nextAction: row[COLUMN_NAMES.nextAction] || '',
-    notes: row[COLUMN_NAMES.notes] || '',
+    name: normalizeTextValue(row[COLUMN_NAMES.name] || ''),
+    organization: normalizeTextValue(row[COLUMN_NAMES.organization] || ''),
+    designation: normalizeTextValue(row[COLUMN_NAMES.designation] || ''),
+    category: normalizeTextValue(row[COLUMN_NAMES.category] || ''), // Sector (org type like Regulatory Body, Public Utility)
+    mobile: normalizeTextValue(row[COLUMN_NAMES.mobile] || ''),
+    officeNo: normalizeTextValue(row[COLUMN_NAMES.officeNo] || ''),
+    email: normalizeTextValue(row[COLUMN_NAMES.email] || '').toLowerCase(),
+    influence: normalizeTextValue(row[COLUMN_NAMES.influence] || ''),
+    interest: normalizeTextValue(row[COLUMN_NAMES.interest] || ''),
+    position: normalizeTextValue(row[COLUMN_NAMES.position] || ''),
+    sentiment: normalizeTextValue(row[COLUMN_NAMES.sentiment] || ''),
+    priority: normalizeTextValue(row[COLUMN_NAMES.priority] || ''),
+    relManager: normalizeTextValue(row[COLUMN_NAMES.relManager] || ''),
+    lastInteraction: normalizeTextValue(row[COLUMN_NAMES.lastInteraction] || ''),
+    nextActionDate: normalizeTextValue(row[COLUMN_NAMES.nextActionDate] || ''),
+    nextAction: normalizeTextValue(row[COLUMN_NAMES.nextAction] || ''),
+    notes: normalizeTextValue(row[COLUMN_NAMES.notes] || ''),
     
     // Derived/formatted fields for dashboard compatibility
-    phone: row[COLUMN_NAMES.mobile] || '', // Primary contact number
-    contact: [row[COLUMN_NAMES.mobile], row[COLUMN_NAMES.officeNo]].filter(Boolean).join(' / '), // Both phone numbers
+    phone: normalizeTextValue(row[COLUMN_NAMES.mobile] || ''), // Primary contact number
+    contact: [row[COLUMN_NAMES.mobile], row[COLUMN_NAMES.officeNo]].map(normalizeTextValue).filter(Boolean).join(' / '), // Both phone numbers
     entityType: 'Person', // Default to Person (can be enhanced in future)
     strategy: '', // Not in new schema but may be needed
-    owner: row[COLUMN_NAMES.relManager] || '', // Map relManager to owner for compatibility
+    owner: normalizeTextValue(row[COLUMN_NAMES.relManager] || ''), // Map relManager to owner for compatibility
   };
 };
 
