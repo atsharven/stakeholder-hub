@@ -4,7 +4,7 @@
 
 ## Purpose
 
-A lightweight contact lookup tool that lets you search across stakeholders, view details, and access contact information (mobile, office, email) at a glance. Data is pulled from a multi-sheet Excel workbook organized by geography (National, Rajasthan, Madhya Pradesh).
+A lightweight contact lookup tool that lets you search across stakeholders, view details, and access contact information (mobile, office, email) at a glance. Data is pulled from a multi-sheet Excel workbook organized by geography (National, States).
 
 ---
 
@@ -12,7 +12,7 @@ A lightweight contact lookup tool that lets you search across stakeholders, view
 
 ### Fast Search & Filter
 - **Smart Search** — Find stakeholders by name, organization, designation, ID, phone, or email
-- **Geographic Filter** — Filter by State (National, Rajasthan, Madhya Pradesh)
+- **Geographic Filter** — Filter by State (National, States)
 - **Sector Filter** — Browse by organization type (Regulatory Body, Public Utility, etc.)
 - **Priority & Position Filters** — Quick segmentation by priority level and position
 
