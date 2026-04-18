@@ -133,6 +133,8 @@ export default function StakeholderDashboard() {
     phone: "",
     email: "",
   });
+  const [useManualLogin, setUseManualLogin] = useState(false);
+  const [googleLoaded, setGoogleLoaded] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const [showInsights, setShowInsights] = useState(false);
   const [pinnedIds, setPinnedIds] = useState(() => {
@@ -187,6 +189,24 @@ export default function StakeholderDashboard() {
     }
   };
 
+  // Initialize Google Sign-In
+  useEffect(() => {
+    const initGoogleSignIn = () => {
+      if (typeof window !== "undefined" && window.google?.accounts?.id) {
+        window.google.accounts.id.initialize({
+          client_id: "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com",
+          callback: handleGoogleLogin,
+          auto_select: false,
+          itp_support: true,
+        });
+        setGoogleLoaded(true);
+      } else {
+        setTimeout(initGoogleSignIn, 500);
+      }
+    };
+    initGoogleSignIn();
+  }, []);
+
   useEffect(() => {
     loadData();
     // Auto-refresh every 30 seconds, but pause when contact modal is open
@@ -197,6 +217,27 @@ export default function StakeholderDashboard() {
     }, 30000);
     return () => clearInterval(interval);
   }, [selectedId]);
+
+  // Render Google Sign-In button
+  useEffect(() => {
+    if (googleLoaded && !useManualLogin && !session) {
+      const timer = setTimeout(() => {
+        if (typeof window !== "undefined" && window.google?.accounts?.id) {
+          const buttonContainer = document.getElementById("google-signin-button");
+          if (buttonContainer && !buttonContainer.querySelector("div[data-buttons]")) {
+            window.google.accounts.id.renderButton(buttonContainer, {
+              theme: isDark ? "dark" : "light",
+              size: "large",
+              width: "100%",
+              type: "standard",
+              text: "signin_with",
+            });
+          }
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [googleLoaded, useManualLogin, session, isDark]);
 
   useEffect(() => {
     if (!copyStatus) return undefined;
@@ -857,6 +898,32 @@ export default function StakeholderDashboard() {
     }
   };
 
+  const handleGoogleLogin = (response) => {
+    if (response.credential) {
+      const base64Url = response.credential.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(
+        atob(base64)
+          .split('')
+          .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+          .join('')
+      );
+      const decodedToken = JSON.parse(jsonPayload);
+
+      const newSession = {
+        name: decodedToken.name || decodedToken.email?.split('@')[0] || "User",
+        email: decodedToken.email || "",
+        phone: "",
+        picture: decodedToken.picture || "",
+        loginAt: new Date().toISOString(),
+        loginMethod: "google",
+      };
+
+      setSession(newSession);
+      setLoginForm({ name: "", phone: "", email: "" });
+    }
+  };
+
   const handleLogin = (event) => {
     event.preventDefault();
 
@@ -874,20 +941,12 @@ export default function StakeholderDashboard() {
     setLoginForm({ name: "", phone: "", email: "" });
   };
 
-  const handleSocialLogin = (method, name) => {
-    const newSession = {
-      name: name || loginForm.name.trim() || `${method} User`,
-      phone: "",
-      email: "",
-      loginAt: new Date().toISOString(),
-      loginMethod: method,
-    };
-    
-    setSession(newSession);
-    setLoginForm({ name: "", phone: "", email: "" });
-  };
-
   const handleLogout = () => {
+    if (session?.loginMethod === "google" && typeof window !== "undefined" && window.google?.accounts?.id) {
+      window.google.accounts.id.revoke(session.email, () => {
+        console.log("Signed out from Google");
+      });
+    }
     setSession(null);
     setLoginForm({ name: "", phone: "", email: "" });
   };
