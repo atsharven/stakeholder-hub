@@ -81,7 +81,11 @@ const parseCSV = (csvText) => {
     if (Object.values(row).some(v => v && v.trim())) rows.push(row);
   }
 
-  if (skipped > 0) console.log(`  ⚠ Skipped ${skipped} rows with missing ID`);
+if (skipped > 0) {
+      if (process.env.NODE_ENV === 'development') {
+        console.debug(`⚠ Skipped ${skipped} rows with missing ID`);
+      }
+    }
 
   return rows;
 };
@@ -138,18 +142,24 @@ const fetchSheetByGid = async (gid) => {
   const configuredState = GOOGLE_SHEET_CONFIG.getStateFromGid(gid);
   
   try {
-    console.log(`▶ Fetching ${configuredState} sheet (GID: ${gid})...`);
+    if (process.env.NODE_ENV === 'development') {
+      console.debug(`▶ Fetching ${configuredState} sheet...`);
+    }
     const response = await fetch(csvUrl, { mode: 'cors' });
     if (!response.ok) throw new Error(`Failed to fetch sheet GID ${gid}`);
     
     const csvText = await response.text();
     const rows = parseCSV(csvText);
     
-    console.log(`✓ ${configuredState}: Parsed ${rows.length} valid records`);
+    if (process.env.NODE_ENV === 'development') {
+      console.debug(`✓ ${configuredState}: Parsed ${rows.length} valid records`);
+    }
     
     return rows.map((row, idx) => mapRow(row, idx, configuredState));
   } catch (error) {
-    console.error(`✗ ${configuredState} fetch error:`, error.message);
+    if (process.env.NODE_ENV === 'development') {
+      console.error(`✗ ${configuredState} fetch error`);
+    }
     return [];
   }
 };
@@ -163,8 +173,10 @@ export const fetchStakeholders = async () => {
   }
   
   try {
-    console.log(`=== STAKEHOLDER DATA LOAD ===`);
-    console.log(`Loading ${sheetGids.length} state sheet(s)...`);
+    if (process.env.NODE_ENV === 'development') {
+      console.debug(`=== STAKEHOLDER DATA LOAD ===`);
+      console.debug(`Loading ${sheetGids.length} state sheet(s)...`);
+    }
     
     // Fetch all sheets in parallel
     const allSheetPromises = sheetGids.map(gid => fetchSheetByGid(gid));
@@ -193,20 +205,25 @@ export const fetchStakeholders = async () => {
     });
     
     if (duplicateCount > 0) {
-      console.log(`  ⚠ Removed ${duplicateCount} duplicate records`);
+      if (process.env.NODE_ENV === 'development') {
+        console.debug(`⚠ Removed ${duplicateCount} duplicate records`);
+      }
     }
     
-    // Log summary with state breakdown
-    console.log(`\n✅ Load Complete:`);
-    console.log(`  Total: ${deduplicated.length} unique stakeholders`);
-    GOOGLE_SHEET_CONFIG.getAllStateNames().forEach(state => {
-      const count = deduplicated.filter(s => s.state === state).length;
-      console.log(`  • ${state}: ${count}`);
-    });
+    if (process.env.NODE_ENV === 'development') {
+      console.debug(`✅ Load Complete:`);
+      console.debug(`  Total: ${deduplicated.length} unique stakeholders`);
+      GOOGLE_SHEET_CONFIG.getAllStateNames().forEach(state => {
+        const count = deduplicated.filter(s => s.state === state).length;
+        console.debug(`  • ${state}: ${count}`);
+      });
+    }
     
     return deduplicated;
   } catch (error) {
-    console.error('Error fetching stakeholders:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Error fetching stakeholders');
+    }
     throw error;
   }
 };

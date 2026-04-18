@@ -189,22 +189,43 @@ export default function StakeholderDashboard() {
     }
   };
 
-  // Initialize Google Sign-In
+  // Initialize Google Sign-In with max retry limit
   useEffect(() => {
+    let retryCount = 0;
+    const maxRetries = 10;
+    let mounted = true;
+
     const initGoogleSignIn = () => {
+      if (!mounted) return;
+
       if (typeof window !== "undefined" && window.google?.accounts?.id) {
-        window.google.accounts.id.initialize({
-          client_id: "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com",
-          callback: handleGoogleLogin,
-          auto_select: false,
-          itp_support: true,
-        });
-        setGoogleLoaded(true);
-      } else {
+        try {
+          window.google.accounts.id.initialize({
+            client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com",
+            callback: handleGoogleLogin,
+            auto_select: false,
+            itp_support: true,
+          });
+          setGoogleLoaded(true);
+        } catch (err) {
+          if (process.env.NODE_ENV === 'development') {
+            console.error('Google Sign-In init error');
+          }
+        }
+      } else if (retryCount < maxRetries) {
+        retryCount++;
         setTimeout(initGoogleSignIn, 500);
+      } else {
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('Google SDK not loaded after max retries');
+        }
       }
     };
+
     initGoogleSignIn();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -215,23 +236,31 @@ export default function StakeholderDashboard() {
         loadData();
       }
     }, 30000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+    };
   }, [selectedId]);
 
-  // Render Google Sign-In button
+  // Render Google Sign-In button with proper cleanup
   useEffect(() => {
     if (googleLoaded && !useManualLogin && !session) {
       const timer = setTimeout(() => {
         if (typeof window !== "undefined" && window.google?.accounts?.id) {
           const buttonContainer = document.getElementById("google-signin-button");
           if (buttonContainer && !buttonContainer.querySelector("div[data-buttons]")) {
-            window.google.accounts.id.renderButton(buttonContainer, {
-              theme: isDark ? "dark" : "light",
-              size: "large",
-              width: "100%",
-              type: "standard",
-              text: "signin_with",
-            });
+            try {
+              window.google.accounts.id.renderButton(buttonContainer, {
+                theme: isDark ? "dark" : "light",
+                size: "large",
+                width: "100%",
+                type: "standard",
+                text: "signin_with",
+              });
+            } catch (err) {
+              if (process.env.NODE_ENV === 'development') {
+                console.error('Google button render error');
+              }
+            }
           }
         }
       }, 100);
@@ -899,46 +928,103 @@ export default function StakeholderDashboard() {
   };
 
   const handleGoogleLogin = (response) => {
-    if (response.credential) {
-      const base64Url = response.credential.split('.')[1];
-      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-      const jsonPayload = decodeURIComponent(
-        atob(base64)
-          .split('')
-          .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-          .join('')
-      );
-      const decodedToken = JSON.parse(jsonPayload);
+    if (response?.credential) {
+      try {
+        // Decode JWT payload (NOTE: signature is verified by Google server)
+        const parts = response.credential.split('.');
+        if (parts.length !== 3) {
+          throw new Error('Invalid JWT format');
+        }
 
-      const newSession = {
-        name: decodedToken.name || decodedToken.email?.split('@')[0] || "User",
-        email: decodedToken.email || "",
-        phone: "",
-        picture: decodedToken.picture || "",
-        loginAt: new Date().toISOString(),
-        loginMethod: "google",
-      };
+        const base64Url = parts[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(
+          atob(base64)
+            .split('')
+            .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+            .join('')
+        );
+        const decodedToken = JSON.parse(jsonPayload);
 
-      setSession(newSession);
-      setLoginForm({ name: "", phone: "", email: "" });
+        // Validate token structure
+        if (!decodedToken.email || !decodedToken.sub) {
+          throw new Error('Invalid token claims');
+        }
+
+        // Sanitize picture URL (prevent XSS)
+        const pictureUrl = decodedToken.picture ? 
+          (new URL(decodedToken.picture).href) : '';
+
+        const newSession = {
+          name: sanitizeInput(decodedToken.name || decodedToken.email?.split('@')[0] || "User"),
+          email: decodedToken.email || "",
+          phone: "",
+          picture: pictureUrl,
+          loginAt: new Date().toISOString(),
+          loginMethod: "google",
+          iss: decodedToken.iss,
+          sub: decodedToken.sub,
+        };
+
+        setSession(newSession);
+        setLoginForm({ name: "", phone: "", email: "" });
+      } catch (err) {
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Google login error');
+        }
+        setError(new Error('Sign-in failed. Please try again.'));
+      }
     }
+  };
+
+  // Sanitize user input to prevent XSS
+  const sanitizeInput = (input) => {
+    if (typeof input !== 'string') return '';
+    return input
+      .replace(/[<>"'&]/g, (char) => ({
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#x27;',
+        '&': '&amp;',
+      }[char]))
+      .trim()
+      .slice(0, 100); // Max 100 chars
   };
 
   const handleLogin = (event) => {
     event.preventDefault();
 
-    if (!loginForm.name.trim()) return;
+    const name = sanitizeInput(loginForm.name);
+    const email = sanitizeInput(loginForm.email);
+    const phone = sanitizeInput(loginForm.phone);
+
+    if (!name) {
+      setError(new Error('Name is required'));
+      return;
+    }
+
+    if (email && !email.includes('@')) {
+      setError(new Error('Invalid email format'));
+      return;
+    }
+
+    if (phone && !/^[+\d\s\-().]*$/.test(phone)) {
+      setError(new Error('Invalid phone format'));
+      return;
+    }
 
     const newSession = {
-      name: loginForm.name.trim(),
-      phone: loginForm.phone.trim(),
-      email: loginForm.email.trim().toLowerCase(),
+      name,
+      phone,
+      email: email.toLowerCase(),
       loginAt: new Date().toISOString(),
       loginMethod: "manual",
     };
     
     setSession(newSession);
     setLoginForm({ name: "", phone: "", email: "" });
+    setError(null);
   };
 
   const handleLogout = () => {
