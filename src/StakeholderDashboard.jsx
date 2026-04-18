@@ -201,7 +201,7 @@ export default function StakeholderDashboard() {
       if (typeof window !== "undefined" && window.google?.accounts?.id) {
         try {
           window.google.accounts.id.initialize({
-            client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com",
+            client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || "866343349257-t38c6knad389r166er8pvteaea73tru0.apps.googleusercontent.com",
             callback: handleGoogleLogin,
             auto_select: false,
             itp_support: true,
