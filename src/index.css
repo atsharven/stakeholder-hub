@@ -128,16 +128,6 @@ input:focus, textarea:focus, select:focus {
   }
 }
 
-/* MODAL SPECIFIC */
-.modal-backdrop {
-  animation: fadeIn 0.3s ease forwards;
-}
-
-.modal-content {
-  animation: slideUp 0.4s ease forwards;
-  will-change: transform, opacity;
-}
-
 html[style*="background: #121212"] ::-webkit-scrollbar-thumb,
 html[style*="background: rgb(18, 18, 18)"] ::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.2);

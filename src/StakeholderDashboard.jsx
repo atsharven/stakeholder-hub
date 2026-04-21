@@ -1,15 +1,16 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   BarChart3,
+  Bookmark,
   ChevronDown,
   ChevronUp,
   LogOut,
+  LogIn,
   Mail,
   Moon,
   Phone,
   RefreshCw,
   Search,
-  ShieldCheck,
   Sun,
   UserRound,
 } from "lucide-react";
@@ -18,22 +19,7 @@ import { useTheme } from "./useTheme";
 import {
   categoryColors,
   levelColors,
-  positionColors,
-  sentimentColors,
 } from "./themeConstants";
-
-const copyText = async (value) => {
-  if (!value || typeof navigator === "undefined" || !navigator.clipboard) {
-    return false;
-  }
-
-  try {
-    await navigator.clipboard.writeText(value);
-    return true;
-  } catch {
-    return false;
-  }
-};
 
 const searchableFields = [
   "id",
@@ -101,7 +87,222 @@ const getSearchScore = (item, query) => {
   return score;
 };
 
+const sanitizeInput = (input) => {
+  if (typeof input !== "string") return "";
+
+  return input
+    .replace(/[<>"'&]/g, (char) => ({
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#x27;",
+      "&": "&amp;",
+    }[char]))
+    .trim()
+    .slice(0, 100);
+};
+
+const ContactModal = React.memo(function ContactModal({
+  stakeholder,
+  onClose,
+  theme,
+  isDark,
+  renderBadge,
+  getCategoryColor,
+  cardStyle,
+  labelStyle,
+  contactInfoStyle,
+}) {
+  if (!stakeholder) return null;
+
+  return (
+    <>
+      <div
+        onClick={onClose}
+        className="modal-backdrop"
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: "rgba(0,0,0,0.4)",
+          backdropFilter: "blur(6px)",
+          zIndex: 998,
+        }}
+      />
+      <div
+        className="modal-content"
+        style={{
+          position: "fixed",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          background: theme.card,
+          border: `1px solid ${theme.border}`,
+          borderRadius: 28,
+          padding: 32,
+          width: "520px",
+          maxWidth: "calc(100% - 48px)",
+          maxHeight: "90vh",
+          overflowY: "auto",
+          zIndex: 999,
+          boxShadow: isDark
+            ? "0 25px 50px rgba(0,0,0,0.4)"
+            : "0 25px 50px rgba(15,23,42,0.15)",
+          display: "grid",
+          gap: 24,
+        }}
+      >
+        <button
+          onClick={onClose}
+          style={{
+            position: "absolute",
+            top: 16,
+            right: 16,
+            height: 32,
+            width: 32,
+            borderRadius: 999,
+            border: `1px solid ${theme.border}`,
+            background: theme.surface,
+            color: theme.text,
+            cursor: "pointer",
+            display: "grid",
+            placeItems: "center",
+            transition: "all 0.2s ease",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.8)";
+            e.currentTarget.style.transform = "scale(1.1)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = theme.surface;
+            e.currentTarget.style.transform = "scale(1)";
+          }}
+        >
+          ✕
+        </button>
+
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 800, color: theme.textMuted, marginBottom: 12 }}>
+            CONTACT DETAILS
+          </div>
+          <div style={{ fontSize: 32, fontWeight: 900, marginBottom: 8 }}>
+            {stakeholder.name || "Unnamed"}
+          </div>
+          <div style={{ color: theme.textSecondary, fontSize: 16, marginBottom: 16 }}>
+            {stakeholder.designation || "—"}
+            {stakeholder.organization && ` • ${stakeholder.organization}`}
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
+            {renderBadge(stakeholder.state, theme.primary)}
+            {renderBadge(stakeholder.category, getCategoryColor(stakeholder.category))}
+          </div>
+        </div>
+
+        <div
+          style={{
+            ...cardStyle,
+          }}
+        >
+          <div style={{ ...labelStyle, marginBottom: 12 }}>
+            Quick Actions
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            {stakeholder.mobile && (
+              <a
+                href={`tel:${stakeholder.mobile}`}
+                style={{
+                  height: 44,
+                  borderRadius: 12,
+                  background: theme.primary,
+                  color: isDark ? "#101214" : "#ffffff",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                  textDecoration: "none",
+                  fontWeight: 700,
+                  fontSize: 13,
+                  transition: "transform 0.2s ease",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-2px)")}
+                onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}
+              >
+                <Phone size={16} />
+                Call
+              </a>
+            )}
+            {stakeholder.email && (
+              <a
+                href={`mailto:${stakeholder.email}`}
+                style={{
+                  height: 44,
+                  borderRadius: 12,
+                  border: `1px solid ${theme.border}`,
+                  background: isDark ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.76)",
+                  color: theme.text,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                  textDecoration: "none",
+                  fontWeight: 700,
+                  fontSize: 13,
+                  transition: "all 0.2s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.82)";
+                  e.currentTarget.style.transform = "translateY(-2px)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.76)";
+                  e.currentTarget.style.transform = "translateY(0)";
+                }}
+              >
+                <Mail size={16} />
+                Email
+              </a>
+            )}
+          </div>
+        </div>
+
+        <div
+          style={{
+            ...cardStyle,
+          }}
+        >
+          <div style={{ ...labelStyle, marginBottom: 12 }}>
+            Contact Information
+          </div>
+          <div style={{ display: "grid", gap: 14 }}>
+            {stakeholder.mobile && (
+              <div>
+                <div style={{ fontSize: 11, color: theme.textMuted, marginBottom: 4 }}>Mobile</div>
+                <div style={contactInfoStyle}>{stakeholder.mobile}</div>
+              </div>
+            )}
+            {stakeholder.officeNo && (
+              <div>
+                <div style={{ fontSize: 11, color: theme.textMuted, marginBottom: 4 }}>Office</div>
+                <div style={contactInfoStyle}>{stakeholder.officeNo}</div>
+              </div>
+            )}
+            {stakeholder.email && (
+              <div>
+                <div style={{ fontSize: 11, color: theme.textMuted, marginBottom: 4 }}>Email</div>
+                <div style={contactInfoStyle}>{stakeholder.email}</div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+});
+
 export default function StakeholderDashboard() {
+  const isDev = import.meta.env.DEV;
   const { theme, isDark, toggleTheme } = useTheme();
 
   const [data, setData] = useState([]);
@@ -113,11 +314,13 @@ export default function StakeholderDashboard() {
   const [priorityFilter, setPriorityFilter] = useState("all");
 
   const [selectedId, setSelectedId] = useState(null);
-  const [copyStatus, setCopyStatus] = useState("");
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== "undefined" ? window.innerWidth < 980 : false,
   );
+  const [isStateSelectFocused, setIsStateSelectFocused] = useState(false);
+  const [accountMessage, setAccountMessage] = useState("");
+  const [savedViews, setSavedViews] = useState([]);
   const [session, setSession] = useState(() => {
     if (typeof window === "undefined") return null;
 
@@ -137,26 +340,6 @@ export default function StakeholderDashboard() {
   const [googleLoaded, setGoogleLoaded] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const [showInsights, setShowInsights] = useState(false);
-  const [pinnedIds, setPinnedIds] = useState(() => {
-    if (typeof window === "undefined") return [];
-
-    try {
-      const saved = window.localStorage.getItem("stakeholder-pins");
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
-  const [recentIds, setRecentIds] = useState(() => {
-    if (typeof window === "undefined") return [];
-
-    try {
-      const saved = window.localStorage.getItem("stakeholder-recent");
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
 
   const surfaceStyle = {
     background: theme.card,
@@ -171,12 +354,6 @@ export default function StakeholderDashboard() {
   const getLevelColor = (value) =>
     levelColors[value]?.[isDark ? "dark" : "light"] || theme.warning;
 
-  const getPositionColor = (value) =>
-    positionColors[value]?.[isDark ? "dark" : "light"] || theme.textMuted;
-
-  const getSentimentColor = (value) =>
-    sentimentColors[value]?.[isDark ? "dark" : "light"] || theme.textMuted;
-
   const loadData = async () => {
     try {
       setError(null);
@@ -188,6 +365,55 @@ export default function StakeholderDashboard() {
       setRefreshing(false);
     }
   };
+
+  const handleGoogleLogin = useCallback((response) => {
+    if (response?.credential) {
+      try {
+        // Decode JWT payload (NOTE: signature is verified by Google server)
+        const parts = response.credential.split(".");
+        if (parts.length !== 3) {
+          throw new Error("Invalid JWT format");
+        }
+
+        const base64Url = parts[1];
+        const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+        const jsonPayload = decodeURIComponent(
+          atob(base64)
+            .split("")
+            .map((c) => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`)
+            .join(""),
+        );
+        const decodedToken = JSON.parse(jsonPayload);
+
+        if (!decodedToken.email || !decodedToken.sub) {
+          throw new Error("Invalid token claims");
+        }
+
+        const pictureUrl = decodedToken.picture
+          ? new URL(decodedToken.picture).href
+          : "";
+
+        const newSession = {
+          name: sanitizeInput(decodedToken.name || decodedToken.email?.split("@")[0] || "User"),
+          email: decodedToken.email || "",
+          phone: "",
+          picture: pictureUrl,
+          loginAt: new Date().toISOString(),
+          loginMethod: "google",
+          iss: decodedToken.iss,
+          sub: decodedToken.sub,
+        };
+
+        setSession(newSession);
+        setLoginForm({ name: "", phone: "", email: "" });
+      } catch {
+        if (isDev) {
+          console.error("Google login error");
+        }
+        setError(new Error("Sign-in failed. Please try again."));
+      }
+    }
+  }, [isDev]);
 
   // Initialize Google Sign-In with max retry limit
   useEffect(() => {
@@ -207,17 +433,17 @@ export default function StakeholderDashboard() {
             itp_support: true,
           });
           setGoogleLoaded(true);
-        } catch (err) {
-          if (process.env.NODE_ENV === 'development') {
-            console.error('Google Sign-In init error');
+        } catch {
+          if (isDev) {
+            console.error("Google Sign-In init error");
           }
         }
       } else if (retryCount < maxRetries) {
         retryCount++;
         setTimeout(initGoogleSignIn, 500);
       } else {
-        if (process.env.NODE_ENV === 'development') {
-          console.warn('Google SDK not loaded after max retries');
+        if (isDev) {
+          console.warn("Google SDK not loaded after max retries");
         }
       }
     };
@@ -226,7 +452,7 @@ export default function StakeholderDashboard() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [handleGoogleLogin, isDev]);
 
   useEffect(() => {
     loadData();
@@ -256,9 +482,9 @@ export default function StakeholderDashboard() {
                 type: "standard",
                 text: "signin_with",
               });
-            } catch (err) {
-              if (process.env.NODE_ENV === 'development') {
-                console.error('Google button render error');
+            } catch {
+              if (isDev) {
+                console.error("Google button render error");
               }
             }
           }
@@ -266,13 +492,7 @@ export default function StakeholderDashboard() {
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [googleLoaded, useManualLogin, session, isDark]);
-
-  useEffect(() => {
-    if (!copyStatus) return undefined;
-    const timeout = setTimeout(() => setCopyStatus(""), 1800);
-    return () => clearTimeout(timeout);
-  }, [copyStatus]);
+  }, [googleLoaded, useManualLogin, session, isDark, isDev]);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -284,16 +504,6 @@ export default function StakeholderDashboard() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    window.localStorage.setItem("stakeholder-pins", JSON.stringify(pinnedIds));
-  }, [pinnedIds]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem("stakeholder-recent", JSON.stringify(recentIds));
-  }, [recentIds]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
 
     if (session) {
       window.localStorage.setItem("stakeholder-session", JSON.stringify(session));
@@ -302,20 +512,88 @@ export default function StakeholderDashboard() {
     }
   }, [session]);
 
+  useEffect(() => {
+    if (typeof window === "undefined" || !savedViewsKey) {
+      setSavedViews([]);
+      return;
+    }
+
+    try {
+      const saved = window.localStorage.getItem(savedViewsKey);
+      setSavedViews(saved ? JSON.parse(saved) : []);
+    } catch {
+      setSavedViews([]);
+    }
+  }, [savedViewsKey]);
+
+  useEffect(() => {
+    if (!accountMessage) return undefined;
+    const timeout = setTimeout(() => setAccountMessage(""), 2400);
+    return () => clearTimeout(timeout);
+  }, [accountMessage]);
+
   const handleRefresh = async () => {
     setRefreshing(true);
     await loadData();
   };
+
+  const applySavedView = useCallback((view) => {
+    setSearchQuery(view.searchQuery || "");
+    setStateFilter(view.stateFilter || "all");
+    setSectorFilter(view.sectorFilter || "all");
+    setPriorityFilter(view.priorityFilter || "all");
+    setShowSummary(Boolean(view.showSummary));
+    setShowInsights(Boolean(view.showInsights));
+    setSelectedId(null);
+  }, []);
 
   const uniqueStates = useMemo(
     () => [...new Set(data.map((item) => item.state).filter(Boolean))].sort(),
     [data],
   );
 
+  const stateCounts = useMemo(() => {
+    const counts = new Map();
+    data.forEach((item) => {
+      if (!item.state) return;
+      counts.set(item.state, (counts.get(item.state) || 0) + 1);
+    });
+    return counts;
+  }, [data]);
+
   const uniqueSectors = useMemo(
     () => [...new Set(data.map((item) => item.category).filter(Boolean))].sort(),
     [data],
   );
+
+  const stateOptions = useMemo(
+    () => [
+      { value: "all", label: isStateSelectFocused ? `All (${data.length})` : "All" },
+      ...uniqueStates.map((value) => ({
+        value,
+        label: `${value} (${stateCounts.get(value) || 0})`,
+      })),
+    ],
+    [data.length, isStateSelectFocused, stateCounts, uniqueStates],
+  );
+
+  const activeView = useMemo(
+    () => ({
+      searchQuery,
+      stateFilter,
+      sectorFilter,
+      priorityFilter,
+      showSummary,
+      showInsights,
+    }),
+    [priorityFilter, searchQuery, sectorFilter, showInsights, showSummary, stateFilter],
+  );
+
+  const savedViewsKey = useMemo(() => {
+    if (!session) return null;
+    const identity = session.email || session.sub || session.name;
+    return identity ? `stakeholder-saved-views:${identity}` : null;
+  }, [session]);
 
   const filteredStakeholders = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -349,10 +627,15 @@ export default function StakeholderDashboard() {
       });
   }, [data, priorityFilter, searchQuery, sectorFilter, stateFilter]);
 
+  const stakeholderLookup = useMemo(
+    () => new Map(data.map((item) => [item.id, item])),
+    [data],
+  );
+
   // Prevent modal from showing stale data when filteredStakeholders updates
   const selectedStakeholderForModal = useMemo(
-    () => filteredStakeholders.find((item) => item.id === selectedId) || null,
-    [filteredStakeholders, selectedId],
+    () => (selectedId ? stakeholderLookup.get(selectedId) || null : null),
+    [selectedId, stakeholderLookup],
   );
 
   useEffect(() => {
@@ -372,28 +655,6 @@ export default function StakeholderDashboard() {
   useEffect(() => {
     setHighlightedIndex(0);
   }, [searchQuery, stateFilter, sectorFilter, priorityFilter]);
-
-
-
-  const stakeholderLookup = useMemo(
-    () => new Map(data.map((item) => [item.id, item])),
-    [data],
-  );
-
-  const pinnedStakeholders = useMemo(
-    () => pinnedIds.map((id) => stakeholderLookup.get(id)).filter(Boolean),
-    [pinnedIds, stakeholderLookup],
-  );
-
-  const recentStakeholders = useMemo(
-    () =>
-      recentIds
-        .filter((id) => !pinnedIds.includes(id))
-        .map((id) => stakeholderLookup.get(id))
-        .filter(Boolean)
-        .slice(0, 6),
-    [pinnedIds, recentIds, stakeholderLookup],
-  );
 
   const summary = useMemo(() => {
     const withPhone = filteredStakeholders.filter((item) => item.mobile || item.officeNo).length;
@@ -503,36 +764,15 @@ export default function StakeholderDashboard() {
     };
   }, [filteredStakeholders]);
 
-  const duplicateIdentityKeys = useMemo(() => {
-    const counts = new Map();
-    filteredStakeholders.forEach((item) => {
-      const key = createIdentityKey(item);
-      if (key) {
-        counts.set(key, (counts.get(key) || 0) + 1);
-      }
-    });
-    return new Set([...counts.entries()].filter(([, count]) => count > 1).map(([key]) => key));
-  }, [filteredStakeholders]);
-
-  const hasDuplicateIdentity = (item) => duplicateIdentityKeys.has(createIdentityKey(item));
-
-  const handleCopy = async (value, label) => {
-    const copied = await copyText(value);
-    setCopyStatus(copied ? `${label} copied` : `Could not copy ${label.toLowerCase()}`);
-  };
-
   const handleSelectStakeholder = (id) => {
     setSelectedId(id);
-    setRecentIds((current) => [id, ...current.filter((item) => item !== id)].slice(0, 8));
     const index = filteredStakeholders.findIndex((item) => item.id === id);
     if (index >= 0) setHighlightedIndex(index);
   };
 
-  const togglePinned = (id) => {
-    setPinnedIds((current) =>
-      current.includes(id) ? current.filter((item) => item !== id) : [id, ...current].slice(0, 8),
-    );
-  };
+  const handleCloseModal = useCallback(() => {
+    setSelectedId(null);
+  }, []);
 
   const renderBadge = (label, color) => {
     if (!label) return null;
@@ -610,7 +850,7 @@ export default function StakeholderDashboard() {
     );
   };
 
-  const FilterSelect = ({ label, value, onChange, options }) => (
+  const FilterSelect = ({ label, value, onChange, options, onFocus, onBlur }) => (
     <label
       style={{
         display: "grid",
@@ -633,6 +873,8 @@ export default function StakeholderDashboard() {
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
+        onFocus={onFocus}
+        onBlur={onBlur}
         style={{
           height: 44,
           borderRadius: 12,
@@ -660,31 +902,6 @@ export default function StakeholderDashboard() {
         ))}
       </select>
     </label>
-  );
-
-  const StakeholderChip = ({ item, pinned = false }) => (
-    <button
-      onClick={() => handleSelectStakeholder(item.id)}
-      style={{
-        border: `1px solid ${theme.border}`,
-        background: theme.surface,
-        color: theme.text,
-        borderRadius: 14,
-        padding: "12px 14px",
-        minWidth: 200,
-        textAlign: "left",
-        cursor: "pointer",
-      }}
-    >
-      <div style={{ fontSize: 14, fontWeight: 800 }}>{item.name}</div>
-      <div style={{ fontSize: 12, color: theme.textSecondary, marginTop: 3 }}>
-        {item.organization || item.state || item.id}
-      </div>
-      <div style={{ marginTop: 8, display: "flex", gap: 8, alignItems: "center" }}>
-        {renderBadge(item.state, theme.primary)}
-        {pinned && <span style={{ fontSize: 11, fontWeight: 800, color: theme.warning }}>Pinned</span>}
-      </div>
-    </button>
   );
 
   const ToggleButton = ({ active, onClick, label, icon }) => (
@@ -826,30 +1043,6 @@ export default function StakeholderDashboard() {
     </div>
   );
 
-  const DetailRow = ({ label, value }) => (
-    <div
-      style={{
-        display: "grid",
-        gap: 6,
-        paddingBottom: 14,
-        borderBottom: `1px solid ${theme.border}`,
-      }}
-    >
-      <div
-        style={{
-          fontSize: 11,
-          fontWeight: 800,
-          textTransform: "uppercase",
-          letterSpacing: "0.08em",
-          color: theme.textMuted,
-        }}
-      >
-        {label}
-      </div>
-      <div style={{ color: theme.text, fontSize: 14, lineHeight: 1.5 }}>{value || "—"}</div>
-    </div>
-  );
-
   const UtilityButton = ({ onClick, children, title, isLoading }) => (
     <button
       onClick={onClick}
@@ -927,71 +1120,6 @@ export default function StakeholderDashboard() {
     }
   };
 
-  const handleGoogleLogin = (response) => {
-    if (response?.credential) {
-      try {
-        // Decode JWT payload (NOTE: signature is verified by Google server)
-        const parts = response.credential.split('.');
-        if (parts.length !== 3) {
-          throw new Error('Invalid JWT format');
-        }
-
-        const base64Url = parts[1];
-        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-        const jsonPayload = decodeURIComponent(
-          atob(base64)
-            .split('')
-            .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-            .join('')
-        );
-        const decodedToken = JSON.parse(jsonPayload);
-
-        // Validate token structure
-        if (!decodedToken.email || !decodedToken.sub) {
-          throw new Error('Invalid token claims');
-        }
-
-        // Sanitize picture URL (prevent XSS)
-        const pictureUrl = decodedToken.picture ? 
-          (new URL(decodedToken.picture).href) : '';
-
-        const newSession = {
-          name: sanitizeInput(decodedToken.name || decodedToken.email?.split('@')[0] || "User"),
-          email: decodedToken.email || "",
-          phone: "",
-          picture: pictureUrl,
-          loginAt: new Date().toISOString(),
-          loginMethod: "google",
-          iss: decodedToken.iss,
-          sub: decodedToken.sub,
-        };
-
-        setSession(newSession);
-        setLoginForm({ name: "", phone: "", email: "" });
-      } catch (err) {
-        if (process.env.NODE_ENV === 'development') {
-          console.error('Google login error');
-        }
-        setError(new Error('Sign-in failed. Please try again.'));
-      }
-    }
-  };
-
-  // Sanitize user input to prevent XSS
-  const sanitizeInput = (input) => {
-    if (typeof input !== 'string') return '';
-    return input
-      .replace(/[<>"'&]/g, (char) => ({
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#x27;',
-        '&': '&amp;',
-      }[char]))
-      .trim()
-      .slice(0, 100); // Max 100 chars
-  };
-
   const handleLogin = (event) => {
     event.preventDefault();
 
@@ -1029,459 +1157,22 @@ export default function StakeholderDashboard() {
 
   const handleLogout = () => {
     if (session?.loginMethod === "google" && typeof window !== "undefined" && window.google?.accounts?.id) {
-      window.google.accounts.id.revoke(session.email, () => {
-        console.log("Signed out from Google");
-      });
+      try {
+        window.google.accounts.id.revoke(session.email, () => {
+          if (isDev) {
+            console.debug("Google sign-out completed");
+          }
+        });
+      } catch {
+        if (isDev) {
+          console.error("Google sign-out error");
+        }
+      }
     }
     setSession(null);
     setLoginForm({ name: "", phone: "", email: "" });
+    setError(null);
   };
-
-  const ContactModal = React.memo(({ stakeholder, onClose }) => {
-    if (!stakeholder) return null;
-
-    return (
-      <>
-        <div
-          onClick={onClose}
-          className="modal-backdrop"
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: "rgba(0,0,0,0.4)",
-            backdropFilter: "blur(6px)",
-            zIndex: 998,
-          }}
-        />
-        <div
-          className="modal-content"
-          style={{
-            position: "fixed",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            background: theme.card,
-            border: `1px solid ${theme.border}`,
-            borderRadius: 28,
-            padding: 32,
-            width: "520px",
-            maxWidth: "calc(100% - 48px)",
-            maxHeight: "90vh",
-            overflowY: "auto",
-            zIndex: 999,
-            boxShadow: isDark
-              ? "0 25px 50px rgba(0,0,0,0.4)"
-              : "0 25px 50px rgba(15,23,42,0.15)",
-            display: "grid",
-            gap: 24,
-          }}
-        >
-          <button
-            onClick={onClose}
-            style={{
-              position: "absolute",
-              top: 16,
-              right: 16,
-              height: 32,
-              width: 32,
-              borderRadius: 999,
-              border: `1px solid ${theme.border}`,
-              background: theme.surface,
-              color: theme.text,
-              cursor: "pointer",
-              display: "grid",
-              placeItems: "center",
-              transition: "all 0.2s ease",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.8)";
-              e.currentTarget.style.transform = "scale(1.1)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = theme.surface;
-              e.currentTarget.style.transform = "scale(1)";
-            }}
-          >
-            ✕
-          </button>
-
-          <div>
-            <div style={{ fontSize: 12, fontWeight: 800, color: theme.textMuted, marginBottom: 12 }}>
-              CONTACT DETAILS
-            </div>
-            <div style={{ fontSize: 32, fontWeight: 900, marginBottom: 8 }}>
-              {stakeholder.name || "Unnamed"}
-            </div>
-            <div style={{ color: theme.textSecondary, fontSize: 16, marginBottom: 16 }}>
-              {stakeholder.designation || "—"}
-              {stakeholder.organization && ` • ${stakeholder.organization}`}
-            </div>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
-              {renderBadge(stakeholder.state, theme.primary)}
-              {renderBadge(stakeholder.category, getCategoryColor(stakeholder.category))}
-            </div>
-          </div>
-
-          <div
-            style={{
-              ...cardStyle,
-            }}
-          >
-            <div style={{ ...labelStyle, marginBottom: 12 }}>
-              Quick Actions
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              {stakeholder.mobile && (
-                <a
-                  href={`tel:${stakeholder.mobile}`}
-                  style={{
-                    height: 44,
-                    borderRadius: 12,
-                    background: theme.primary,
-                    color: isDark ? "#101214" : "#ffffff",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 6,
-                    textDecoration: "none",
-                    fontWeight: 700,
-                    fontSize: 13,
-                    transition: "transform 0.2s ease",
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-2px)")}
-                  onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}
-                >
-                  <Phone size={16} />
-                  Call
-                </a>
-              )}
-              {stakeholder.email && (
-                <a
-                  href={`mailto:${stakeholder.email}`}
-                  style={{
-                    height: 44,
-                    borderRadius: 12,
-                    border: `1px solid ${theme.border}`,
-                    background: isDark ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.76)",
-                    color: theme.text,
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 6,
-                    textDecoration: "none",
-                    fontWeight: 700,
-                    fontSize: 13,
-                    transition: "all 0.2s ease",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.82)";
-                    e.currentTarget.style.transform = "translateY(-2px)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.76)";
-                    e.currentTarget.style.transform = "translateY(0)";
-                  }}
-                >
-                  <Mail size={16} />
-                  Email
-                </a>
-              )}
-            </div>
-          </div>
-
-          <div
-            style={{
-              ...cardStyle,
-            }}
-          >
-            <div style={{ ...labelStyle, marginBottom: 12 }}>
-              Contact Information
-            </div>
-            <div style={{ display: "grid", gap: 14 }}>
-              {stakeholder.mobile && (
-                <div>
-                  <div style={{ fontSize: 11, color: theme.textMuted, marginBottom: 4 }}>Mobile</div>
-                  <div style={contactInfoStyle}>{stakeholder.mobile}</div>
-                </div>
-              )}
-              {stakeholder.officeNo && (
-                <div>
-                  <div style={{ fontSize: 11, color: theme.textMuted, marginBottom: 4 }}>Office</div>
-                  <div style={contactInfoStyle}>{stakeholder.officeNo}</div>
-                </div>
-              )}
-              {stakeholder.email && (
-                <div>
-                  <div style={{ fontSize: 11, color: theme.textMuted, marginBottom: 4 }}>Email</div>
-                  <div style={contactInfoStyle}>{stakeholder.email}</div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </>
-    );
-  });
-
-  if (!session) {
-    return (
-      <div
-        style={{
-          minHeight: "100vh",
-          background: isDark
-            ? "linear-gradient(180deg, #121212 0%, #171717 100%)"
-            : "linear-gradient(180deg, #f7f8fb 0%, #eef2f7 100%)",
-          display: "grid",
-          placeItems: "center",
-          padding: 24,
-          color: theme.text,
-          fontFamily: '"Segoe UI", "Aptos", "SF Pro Display", system-ui, sans-serif',
-        }}
-      >
-        <div
-          style={{
-            ...surfaceStyle,
-            width: "min(100%, 980px)",
-            display: "grid",
-            gridTemplateColumns: isMobile ? "1fr" : "1.05fr 0.95fr",
-            overflow: "hidden",
-          }}
-        >
-          <div
-            style={{
-              padding: "clamp(24px, 4vw, 42px)",
-              background: isDark
-                ? "linear-gradient(140deg, rgba(31,31,31,1) 0%, rgba(24,24,24,1) 100%)"
-                : "linear-gradient(140deg, rgba(255,255,255,1) 0%, rgba(248,250,252,1) 100%)",
-              borderRight: isMobile ? "none" : `1px solid ${theme.border}`,
-              borderBottom: isMobile ? `1px solid ${theme.border}` : "none",
-            }}
-          >
-            <div
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "6px 10px",
-                borderRadius: 999,
-                background: `${theme.primary}14`,
-                color: theme.primary,
-                fontWeight: 700,
-                fontSize: 12,
-                marginBottom: 16,
-              }}
-            >
-              <ShieldCheck size={14} />
-              WRI Stakeholder Dashboard
-            </div>
-            <h1
-              style={{
-                fontSize: "clamp(28px, 5vw, 42px)",
-                lineHeight: 1.05,
-                letterSpacing: "-0.04em",
-                marginBottom: 10,
-              }}
-            >
-              Sign in to open the stakeholder workspace.
-            </h1>
-            <p style={{ color: theme.textSecondary, fontSize: 15, maxWidth: 480 }}>
-              This is a lightweight login shell for now. We can later extend it to store and use
-              user details, permissions, and activity context.
-            </p>
-
-            <div
-              style={{
-                marginTop: 24,
-                display: "grid",
-                gap: 12,
-              }}
-            >
-              {[
-                "Fast search across contacts, orgs, emails, and phone numbers",
-                "Quick stakeholder cards with call, email, and copy actions",
-                "Optional insights instead of a metrics-heavy default screen",
-              ].map((item) => (
-                <div
-                  key={item}
-                  style={{
-                    display: "flex",
-                    gap: 10,
-                    alignItems: "center",
-                    color: theme.textSecondary,
-                    fontSize: 14,
-                  }}
-                >
-                  <span
-                    style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: 999,
-                      background: theme.primary,
-                      flexShrink: 0,
-                    }}
-                  />
-                  {item}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <form
-            onSubmit={handleLogin}
-            style={{
-              padding: "clamp(24px, 4vw, 42px)",
-              display: "grid",
-              gap: 18,
-              alignContent: "center",
-            }}
-          >
-            <div>
-              <div style={{ fontSize: 22, fontWeight: 800 }}>Sign In</div>
-              <div style={{ color: theme.textSecondary, marginTop: 6, fontSize: 14 }}>
-                Enter your details to continue.
-              </div>
-            </div>
-
-            {[
-              { key: "name", label: "Name", required: true, type: "text", placeholder: "Your name" },
-              { key: "phone", label: "Phone", required: false, type: "tel", placeholder: "Optional phone" },
-              { key: "email", label: "Email", required: false, type: "email", placeholder: "Optional email" },
-            ].map((field) => (
-              <label key={field.key} style={{ display: "grid", gap: 8 }}>
-                <span
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 700,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.08em",
-                    color: theme.textMuted,
-                  }}
-                >
-                  {field.label}
-                </span>
-                <input
-                  required={field.required}
-                  type={field.type}
-                  value={loginForm[field.key]}
-                  onChange={(event) =>
-                    setLoginForm((current) => ({ ...current, [field.key]: event.target.value }))
-                  }
-                  placeholder={field.placeholder}
-                  style={{
-                    height: 48,
-                    borderRadius: 14,
-                    border: `1px solid ${theme.border}`,
-                    background: theme.surface,
-                    color: theme.text,
-                    padding: "0 14px",
-                    fontSize: 14,
-                  }}
-                />
-              </label>
-            ))}
-
-            <button
-              type="submit"
-              style={{
-                height: 48,
-                borderRadius: 14,
-                border: "none",
-                background: theme.primary,
-                color: isDark ? "#101214" : "#ffffff",
-                fontWeight: 800,
-                cursor: "pointer",
-                marginTop: 6,
-                transition: "all 0.2s ease",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.opacity = "0.9";
-                e.currentTarget.style.transform = "translateY(-2px)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.opacity = "1";
-                e.currentTarget.style.transform = "translateY(0)";
-              }}
-            >
-              Open Dashboard
-            </button>
-
-            <div style={{ position: "relative", margin: "24px 0", display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ flex: 1, height: "1px", background: theme.border }} />
-              <span style={{ fontSize: 12, color: theme.textMuted, fontWeight: 600 }}>OR</span>
-              <div style={{ flex: 1, height: "1px", background: theme.border }} />
-            </div>
-
-            {!useManualLogin && googleLoaded ? (
-              <>
-                <div
-                  id="google-signin-button"
-                  style={{
-                    display: "flex",
-                    justifyContent: "center",
-                    minHeight: 48,
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={() => setUseManualLogin(true)}
-                  style={{
-                    height: 48,
-                    borderRadius: 14,
-                    border: `1px solid ${theme.border}`,
-                    background: "transparent",
-                    color: theme.textSecondary,
-                    fontWeight: 600,
-                    cursor: "pointer",
-                    fontSize: 14,
-                    transition: "all 0.2s ease",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.02)";
-                    e.currentTarget.style.color = theme.text;
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = "transparent";
-                    e.currentTarget.style.color = theme.textSecondary;
-                  }}
-                >
-                  Use manual login instead
-                </button>
-              </>
-            ) : useManualLogin ? (
-              <button
-                type="button"
-                onClick={() => setUseManualLogin(false)}
-                style={{
-                  height: 48,
-                  borderRadius: 14,
-                  border: `1px solid ${theme.border}`,
-                  background: "transparent",
-                  color: theme.textSecondary,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  fontSize: 14,
-                  transition: "all 0.2s ease",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.02)";
-                  e.currentTarget.style.color = theme.text;
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "transparent";
-                  e.currentTarget.style.color = theme.textSecondary;
-                }}
-              >
-                Back to Google Sign-In
-              </button>
-            ) : null}
-          </form>
-        </div>
-      </div>
-    );
-  }
 
   if (data.length === 0 && !error) {
     return (
@@ -1608,20 +1299,20 @@ export default function StakeholderDashboard() {
               >
                 WRI Stakeholder Dashboard
               </div>
-            <h1
-              style={{
-                fontSize: "clamp(26px, 5vw, 38px)",
-                lineHeight: 1.05,
-                letterSpacing: "-0.04em",
-                marginBottom: 4,
-              }}
-            >
-              Stakeholder contacts, simplified.
-            </h1>
-            <p style={{ color: theme.textSecondary, maxWidth: 420, fontSize: 13 }}>
-              Search. Filter. Open.
-            </p>
-          </div>
+              <h1
+                style={{
+                  fontSize: "clamp(26px, 5vw, 38px)",
+                  lineHeight: 1.05,
+                  letterSpacing: "-0.04em",
+                  marginBottom: 4,
+                }}
+              >
+                WRI Stakeholder Dashboard
+              </h1>
+              <p style={{ color: theme.textSecondary, maxWidth: 420, fontSize: 13 }}>
+                Search. Filter. Open.
+              </p>
+            </div>
 
             <div
               style={{
@@ -1639,9 +1330,11 @@ export default function StakeholderDashboard() {
               <UtilityButton onClick={toggleTheme} title="Toggle theme">
                 {isDark ? <Sun size={15} /> : <Moon size={15} />}
               </UtilityButton>
-              <UtilityButton onClick={handleLogout} title="Logout">
-                <LogOut size={15} />
-              </UtilityButton>
+              {session && (
+                <UtilityButton onClick={handleLogout} title="Logout">
+                  <LogOut size={15} />
+                </UtilityButton>
+              )}
             </div>
           </div>
 
@@ -1666,7 +1359,7 @@ export default function StakeholderDashboard() {
               }}
             >
               <UserRound size={16} />
-              {session.name}
+              {session ? session.name : "Guest mode"}
             </div>
 
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -1752,6 +1445,185 @@ export default function StakeholderDashboard() {
             )}
           </div>
         </section>
+
+        {!session && (
+          <section
+            style={{
+              ...surfaceStyle,
+              padding: "18px clamp(18px, 3vw, 24px)",
+              display: "grid",
+              gap: 18,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                gap: 16,
+                flexWrap: "wrap",
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 18, fontWeight: 800 }}>Optional sign-in</div>
+                <div style={{ color: theme.textSecondary, marginTop: 4, fontSize: 13 }}>
+                  Browse as a guest for now. Sign in later if we add saved preferences.
+                </div>
+              </div>
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "8px 12px",
+                  borderRadius: 999,
+                  background: isDark ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.76)",
+                  border: `1px solid ${theme.border}`,
+                  color: theme.textMuted,
+                  fontSize: 12,
+                  fontWeight: 700,
+                }}
+              >
+                Guest access is enabled
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1.1fr) minmax(320px, 0.9fr)",
+                gap: 18,
+                alignItems: "start",
+              }}
+            >
+              <div
+                style={{
+                  display: "grid",
+                  gap: 10,
+                  color: theme.textSecondary,
+                  fontSize: 14,
+                }}
+              >
+                <div>Use the dashboard without signing in.</div>
+                <div>Sign-in is reserved for future saved context and preferences.</div>
+              </div>
+
+              <div
+                style={{
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: 18,
+                  padding: 16,
+                  background: isDark ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.72)",
+                  display: "grid",
+                  gap: 14,
+                }}
+              >
+                {!useManualLogin && googleLoaded ? (
+                  <>
+                    <div
+                      id="google-signin-button"
+                      style={{
+                        display: "flex",
+                        justifyContent: "center",
+                        minHeight: 48,
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setUseManualLogin(true)}
+                      style={{
+                        height: 44,
+                        borderRadius: 12,
+                        border: `1px solid ${theme.border}`,
+                        background: "transparent",
+                        color: theme.textSecondary,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        fontSize: 14,
+                      }}
+                    >
+                      Use manual sign-in
+                    </button>
+                  </>
+                ) : (
+                  <form onSubmit={handleLogin} style={{ display: "grid", gap: 12 }}>
+                    {[
+                      { key: "name", label: "Name", required: true, type: "text", placeholder: "Your name" },
+                      { key: "phone", label: "Phone", required: false, type: "tel", placeholder: "Optional phone" },
+                      { key: "email", label: "Email", required: false, type: "email", placeholder: "Optional email" },
+                    ].map((field) => (
+                      <label key={field.key} style={{ display: "grid", gap: 6 }}>
+                        <span
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 700,
+                            textTransform: "uppercase",
+                            letterSpacing: "0.08em",
+                            color: theme.textMuted,
+                          }}
+                        >
+                          {field.label}
+                        </span>
+                        <input
+                          required={field.required}
+                          type={field.type}
+                          value={loginForm[field.key]}
+                          onChange={(event) =>
+                            setLoginForm((current) => ({ ...current, [field.key]: event.target.value }))
+                          }
+                          placeholder={field.placeholder}
+                          style={{
+                            height: 44,
+                            borderRadius: 12,
+                            border: `1px solid ${theme.border}`,
+                            background: theme.surface,
+                            color: theme.text,
+                            padding: "0 14px",
+                            fontSize: 14,
+                          }}
+                        />
+                      </label>
+                    ))}
+
+                    <button
+                      type="submit"
+                      style={{
+                        height: 44,
+                        borderRadius: 12,
+                        border: "none",
+                        background: theme.primary,
+                        color: isDark ? "#101214" : "#ffffff",
+                        fontWeight: 800,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Sign in
+                    </button>
+
+                    {googleLoaded && (
+                      <button
+                        type="button"
+                        onClick={() => setUseManualLogin(false)}
+                        style={{
+                          height: 44,
+                          borderRadius: 12,
+                          border: `1px solid ${theme.border}`,
+                          background: "transparent",
+                          color: theme.textSecondary,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          fontSize: 14,
+                        }}
+                      >
+                        Back to Google sign-in
+                      </button>
+                    )}
+                  </form>
+                )}
+              </div>
+            </div>
+          </section>
+        )}
 
         {showInsights && (
           <section
@@ -1864,10 +1736,9 @@ export default function StakeholderDashboard() {
             label="State"
             value={stateFilter}
             onChange={setStateFilter}
-            options={[
-              { value: "all", label: `All States (${summary.total})` },
-              ...uniqueStates.map((value) => ({ value, label: value })),
-            ]}
+            onFocus={() => setIsStateSelectFocused(true)}
+            onBlur={() => setIsStateSelectFocused(false)}
+            options={stateOptions}
           />
           <FilterSelect
             label="Sector"
@@ -2062,7 +1933,19 @@ export default function StakeholderDashboard() {
           </div>
         </section>
 
-        {selectedStakeholderForModal && <ContactModal stakeholder={selectedStakeholderForModal} onClose={() => setSelectedId(null)} />}
+        {selectedStakeholderForModal && (
+          <ContactModal
+            stakeholder={selectedStakeholderForModal}
+            onClose={handleCloseModal}
+            theme={theme}
+            isDark={isDark}
+            renderBadge={renderBadge}
+            getCategoryColor={getCategoryColor}
+            cardStyle={cardStyle}
+            labelStyle={labelStyle}
+            contactInfoStyle={contactInfoStyle}
+          />
+        )}
       </div>
     </div>
   );

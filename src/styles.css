@@ -1,0 +1,477 @@
+/* ========== COMPONENT STYLES ========== */
+
+/* Filter Select Styling */
+.filter-select-label {
+  display: grid;
+  gap: 8px;
+  min-width: 160px;
+  flex: 1 1 160px;
+}
+
+.filter-select-label span {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.filter-select {
+  height: 44px;
+  border-radius: 12px;
+  padding: 0 14px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.filter-select:hover {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary-alpha-20);
+}
+
+/* Toggle Button */
+.toggle-btn {
+  height: 42px;
+  padding: 0 14px;
+  border-radius: 12px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid var(--border);
+}
+
+.toggle-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px var(--shadow-light);
+}
+
+.toggle-btn.active {
+  background: var(--primary-alpha-12);
+  color: var(--primary);
+}
+
+.toggle-btn.inactive {
+  background: var(--surface);
+  color: var(--text);
+}
+
+/* Stakeholder Chip */
+.stakeholder-chip {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 14px;
+  padding: 12px 14px;
+  min-width: 200px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.stakeholder-chip:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px var(--shadow);
+}
+
+/* Badge */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* Button Links (Call, Email) */
+.btn-primary {
+  height: 44px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 13px;
+  transition: transform 0.2s ease;
+  cursor: pointer;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+}
+
+.btn-secondary {
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 13px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.btn-secondary:hover {
+  transform: translateY(-2px);
+}
+
+/* Stat Pill */
+.stat-pill {
+  display: grid;
+  gap: 2px;
+  min-width: 92px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.stat-pill-label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.stat-pill-value {
+  font-size: 20px;
+  font-weight: 900;
+  color: var(--text);
+}
+
+/* Insight Card */
+.insight-card {
+  padding: 14px 0;
+  border-radius: 0;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  display: grid;
+  gap: 4px;
+}
+
+.insight-card-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.insight-card-value {
+  font-size: 28px;
+  font-weight: 900;
+  color: var(--text);
+}
+
+.insight-card-subtext {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* Mini Chart */
+.mini-chart {
+  padding: 20px;
+  border-radius: 24px;
+  background: var(--chart-bg);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(14px);
+}
+
+.mini-chart-title {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+}
+
+.chart-entry {
+  display: grid;
+  gap: 6px;
+}
+
+.chart-entry-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.chart-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.chart-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+/* Modal */
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(6px);
+  z-index: 998;
+  animation: fadeIn 0.15s ease-out;
+}
+
+.modal-content {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 28px;
+  padding: 32px;
+  width: 520px;
+  max-width: calc(100% - 48px);
+  max-height: 90vh;
+  overflow-y: auto;
+  z-index: 999;
+  animation: slideUp 0.25s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translate(-50%, -40%);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, -50%);
+    opacity: 1;
+  }
+}
+
+.modal-close-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  height: 32px;
+  width: 32px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: all 0.2s ease;
+}
+
+.modal-close-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  transform: scale(1.1);
+}
+
+/* Card Styles */
+.card {
+  padding: 18px;
+  border-radius: 22px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+}
+
+.card-label {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.contact-info-style {
+  font-size: 15px;
+  color: var(--text);
+  font-weight: 600;
+  font-family: monospace;
+}
+
+/* Detail Row */
+.detail-row {
+  display: grid;
+  gap: 6px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.detail-row-label {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.detail-row-value {
+  font-size: 15px;
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* Stakeholder Card Grid Item */
+.stakeholder-card {
+  text-align: left;
+  border-radius: 18px;
+  padding: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: grid;
+  grid-template-rows: auto auto auto auto;
+  gap: 10px;
+}
+
+.stakeholder-card:hover {
+  transform: translateY(-4px);
+}
+
+.stakeholder-card.active {
+  border: 1px solid var(--primary);
+  background: var(--primary-alpha-10);
+  box-shadow: 0 0 0 2px var(--primary-alpha-20);
+}
+
+.stakeholder-card.inactive {
+  border: 1px solid var(--border);
+  background: var(--card);
+}
+
+/* Highlighted Text */
+.highlight {
+  background: var(--warning-alpha-33);
+  color: var(--text);
+  padding: 0 2px;
+  border-radius: 4px;
+}
+
+/* Login Section */
+.login-container {
+  padding: clamp(24px, 4vw, 42px);
+  display: grid;
+  gap: 18px;
+  align-content: center;
+}
+
+.login-header {
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.login-subheader {
+  color: var(--text-secondary);
+  margin-top: 6px;
+  font-size: 14px;
+}
+
+.form-field {
+  display: grid;
+  gap: 8px;
+}
+
+.form-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.form-input {
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  padding: 0 14px;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.form-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary-alpha-20);
+}
+
+/* Error & Status Messages */
+.error-message {
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: rgba(220, 38, 38, 0.1);
+  color: #dc2626;
+  border: 1px solid rgba(220, 38, 38, 0.2);
+  font-size: 13px;
+}
+
+.success-message {
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(34, 197, 94, 0.1);
+  color: #22c55e;
+  font-size: 12px;
+  animation: slideInDown 0.2s ease-out;
+}
+
+@keyframes slideInDown {
+  from {
+    transform: translateY(-10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Navigation Badge */
+.nav-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--primary-alpha-14);
+  color: var(--primary);
+  font-weight: 700;
+  font-size: 12px;
+  margin-bottom: 14px;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .modal-content {
+    width: 100%;
+    padding: 24px;
+  }
+
+  .stakeholder-card {
+    padding: 12px;
+  }
+
+  .filter-select-label {
+    min-width: 120px;
+  }
+}
