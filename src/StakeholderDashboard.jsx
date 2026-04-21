@@ -15,7 +15,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { fetchStakeholders } from "./googleSheetsClient";
-import { useTheme } from "./useTheme";
+import { useTheme } from "./themeContext";
 import {
   categoryColors,
   levelColors,
@@ -405,6 +405,7 @@ export default function StakeholderDashboard() {
         };
 
         setSession(newSession);
+        setAccountMessage("Signed in");
         setLoginForm({ name: "", phone: "", email: "" });
       } catch {
         if (isDev) {
@@ -512,6 +513,24 @@ export default function StakeholderDashboard() {
     }
   }, [session]);
 
+  const activeView = useMemo(
+    () => ({
+      searchQuery,
+      stateFilter,
+      sectorFilter,
+      priorityFilter,
+      showSummary,
+      showInsights,
+    }),
+    [priorityFilter, searchQuery, sectorFilter, showInsights, showSummary, stateFilter],
+  );
+
+  const savedViewsKey = useMemo(() => {
+    if (!session) return null;
+    const identity = session.email || session.sub || session.name;
+    return identity ? `stakeholder-saved-views:${identity}` : null;
+  }, [session]);
+
   useEffect(() => {
     if (typeof window === "undefined" || !savedViewsKey) {
       setSavedViews([]);
@@ -576,24 +595,6 @@ export default function StakeholderDashboard() {
     ],
     [data.length, isStateSelectFocused, stateCounts, uniqueStates],
   );
-
-  const activeView = useMemo(
-    () => ({
-      searchQuery,
-      stateFilter,
-      sectorFilter,
-      priorityFilter,
-      showSummary,
-      showInsights,
-    }),
-    [priorityFilter, searchQuery, sectorFilter, showInsights, showSummary, stateFilter],
-  );
-
-  const savedViewsKey = useMemo(() => {
-    if (!session) return null;
-    const identity = session.email || session.sub || session.name;
-    return identity ? `stakeholder-saved-views:${identity}` : null;
-  }, [session]);
 
   const filteredStakeholders = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -671,13 +672,6 @@ export default function StakeholderDashboard() {
   }, [data.length, filteredStakeholders]);
 
   const insightMetrics = useMemo(() => {
-    const positionCounts = filteredStakeholders.reduce((acc, item) => {
-      if (item.position) {
-        acc[item.position] = (acc[item.position] || 0) + 1;
-      }
-      return acc;
-    }, {});
-
     const stateCounts = filteredStakeholders.reduce((acc, item) => {
       if (item.state) {
         acc[item.state] = (acc[item.state] || 0) + 1;
@@ -685,26 +679,14 @@ export default function StakeholderDashboard() {
       return acc;
     }, {});
 
-    const engagementReady = filteredStakeholders.filter(
-      (item) => item.lastInteraction || item.nextAction || item.nextActionDate,
-    ).length;
-
-    const withNotes = filteredStakeholders.filter((item) => item.notes).length;
     const nextActionReady = filteredStakeholders.filter(
       (item) => item.nextAction || item.nextActionDate,
     ).length;
     const contactReady = filteredStakeholders.filter(
       (item) => item.mobile || item.officeNo || item.email,
     ).length;
-    const supportiveCount = filteredStakeholders.filter((item) => item.position === "Supportive").length;
-    const resistantCount = filteredStakeholders.filter((item) => item.position === "Resistant").length;
 
     return {
-      engagementRate:
-        filteredStakeholders.length > 0
-          ? Math.round((engagementReady / filteredStakeholders.length) * 100)
-          : 0,
-      withNotes,
       nextActionRate:
         filteredStakeholders.length > 0
           ? Math.round((nextActionReady / filteredStakeholders.length) * 100)
@@ -713,9 +695,6 @@ export default function StakeholderDashboard() {
         filteredStakeholders.length > 0
           ? Math.round((contactReady / filteredStakeholders.length) * 100)
           : 0,
-      supportiveCount,
-      resistantCount,
-      positions: Object.entries(positionCounts).sort((a, b) => b[1] - a[1]).slice(0, 4),
       states: Object.entries(stateCounts).sort((a, b) => b[1] - a[1]).slice(0, 4),
     };
   }, [filteredStakeholders]);
@@ -1151,6 +1130,7 @@ export default function StakeholderDashboard() {
     };
     
     setSession(newSession);
+    setAccountMessage("Signed in");
     setLoginForm({ name: "", phone: "", email: "" });
     setError(null);
   };
@@ -1170,9 +1150,36 @@ export default function StakeholderDashboard() {
       }
     }
     setSession(null);
+    setSavedViews([]);
+    setAccountMessage("Signed out");
     setLoginForm({ name: "", phone: "", email: "" });
     setError(null);
   };
+
+  const handleSaveView = useCallback(() => {
+    if (!session || !savedViewsKey || typeof window === "undefined") {
+      setAccountMessage("Sign in to save dashboard views");
+      setUseManualLogin(false);
+      return;
+    }
+
+    const nextView = {
+      id: `${Date.now()}`,
+      label:
+        stateFilter !== "all"
+          ? stateFilter
+          : searchQuery.trim()
+            ? `Search: ${searchQuery.trim().slice(0, 24)}`
+            : "All contacts",
+      savedAt: new Date().toISOString(),
+      ...activeView,
+    };
+
+    const nextViews = [nextView, ...savedViews].slice(0, 6);
+    setSavedViews(nextViews);
+    window.localStorage.setItem(savedViewsKey, JSON.stringify(nextViews));
+    setAccountMessage("Dashboard view saved");
+  }, [activeView, savedViews, savedViewsKey, searchQuery, session, stateFilter]);
 
   if (data.length === 0 && !error) {
     return (
@@ -1274,356 +1281,349 @@ export default function StakeholderDashboard() {
         >
           <div
             style={{
-              display: "flex",
-              justifyContent: "space-between",
-              gap: 16,
-              alignItems: "flex-start",
-              flexWrap: "wrap",
-              marginBottom: 22,
-            }}
-          >
-            <div style={{ maxWidth: 720 }}>
-              <div
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
-                  padding: "6px 10px",
-                  borderRadius: 999,
-                  background: `${theme.primary}14`,
-                  color: theme.primary,
-                  fontWeight: 700,
-                  fontSize: 12,
-                  marginBottom: 14,
-                }}
-              >
-                WRI Stakeholder Dashboard
-              </div>
-              <h1
-                style={{
-                  fontSize: "clamp(26px, 5vw, 38px)",
-                  lineHeight: 1.05,
-                  letterSpacing: "-0.04em",
-                  marginBottom: 4,
-                }}
-              >
-                WRI Stakeholder Dashboard
-              </h1>
-              <p style={{ color: theme.textSecondary, maxWidth: 420, fontSize: 13 }}>
-                Search. Filter. Open.
-              </p>
-            </div>
-
-            <div
-              style={{
-                display: "flex",
-                gap: 10,
-                alignItems: "center",
-                flexWrap: "wrap",
-                justifyContent: "flex-end",
-              }}
-            >
-              <UtilityButton onClick={handleRefresh} title={refreshing ? "Refreshing" : "Refresh"} isLoading={refreshing}>
-                <RefreshCw size={15} style={{ opacity: 0.85 }} />
-              </UtilityButton>
-
-              <UtilityButton onClick={toggleTheme} title="Toggle theme">
-                {isDark ? <Sun size={15} /> : <Moon size={15} />}
-              </UtilityButton>
-              {session && (
-                <UtilityButton onClick={handleLogout} title="Logout">
-                  <LogOut size={15} />
-                </UtilityButton>
-              )}
-            </div>
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 12,
-              flexWrap: "wrap",
-              marginBottom: 14,
-            }}
-          >
-            <div
-              style={{
-                color: theme.textSecondary,
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 8,
-                fontWeight: 700,
-                fontSize: 13,
-              }}
-            >
-              <UserRound size={16} />
-              {session ? session.name : "Guest mode"}
-            </div>
-
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <ToggleButton
-                active={showSummary}
-                onClick={() => setShowSummary((value) => !value)}
-                label="Metrics"
-                icon={<BarChart3 size={16} />}
-              />
-              <ToggleButton
-                active={showInsights}
-                onClick={() => setShowInsights((value) => !value)}
-                label="Insights"
-                icon={<BarChart3 size={16} />}
-              />
-            </div>
-          </div>
-
-          <div
-            style={{
               display: "grid",
-              gridTemplateColumns: "minmax(0, 2.2fr) minmax(220px, 1fr)",
-              gap: 14,
-            }}
-          >
-            <label
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                height: 56,
-                borderRadius: 999,
-                border: `1px solid ${theme.border}`,
-                background: isDark ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.78)",
-                padding: "0 18px",
-                backdropFilter: "blur(10px)",
-              }}
-            >
-              <Search size={18} style={{ color: theme.textMuted }} />
-              <input
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                onKeyDown={handleSearchKeyDown}
-                placeholder="Search name, organisation, designation, ID, phone, or email"
-                style={{
-                  width: "100%",
-                  border: "none",
-                  background: "transparent",
-                  color: theme.text,
-                  fontSize: 15,
-                }}
-              />
-            </label>
-            {showSummary ? (
-              <div
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  gap: 12,
-                }}
-              >
-                <StatPill label="CONTACTS" value={summary.shown} />
-                <StatPill label="PHONE" value={summary.withPhone} />
-                <StatPill label="EMAIL" value={summary.withEmail} />
-              </div>
-            ) : (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  flexWrap: "wrap",
-                  borderRadius: 16,
-                  border: `1px solid ${theme.border}`,
-                  background: theme.bg,
-                  padding: "10px 14px",
-                  color: theme.textSecondary,
-                  fontSize: 13,
-                }}
-              >
-                <span>{summary.shown} contacts</span>
-              </div>
-            )}
-          </div>
-        </section>
-
-        {!session && (
-          <section
-            style={{
-              ...surfaceStyle,
-              padding: "18px clamp(18px, 3vw, 24px)",
-              display: "grid",
+              gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1.6fr) minmax(320px, 0.95fr)",
               gap: 18,
+              alignItems: "start",
             }}
           >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "flex-start",
-                gap: 16,
-                flexWrap: "wrap",
-              }}
-            >
-              <div>
-                <div style={{ fontSize: 18, fontWeight: 800 }}>Optional sign-in</div>
-                <div style={{ color: theme.textSecondary, marginTop: 4, fontSize: 13 }}>
-                  Browse as a guest for now. Sign in later if we add saved preferences.
+            <div style={{ display: "grid", gap: 18 }}>
+              <div style={{ maxWidth: 720 }}>
+                <div
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "6px 10px",
+                    borderRadius: 999,
+                    background: `${theme.primary}14`,
+                    color: theme.primary,
+                    fontWeight: 700,
+                    fontSize: 12,
+                    marginBottom: 14,
+                  }}
+                >
+                  WRI Stakeholder Dashboard
                 </div>
+                <h1
+                  style={{
+                    fontSize: "clamp(26px, 5vw, 38px)",
+                    lineHeight: 1.05,
+                    letterSpacing: "-0.04em",
+                    marginBottom: 4,
+                  }}
+                >
+                  WRI Stakeholder Dashboard
+                </h1>
+                <p style={{ color: theme.textSecondary, maxWidth: 460, fontSize: 13 }}>
+                  Search, filter, and open stakeholder details fast.
+                </p>
               </div>
-              <div
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
-                  padding: "8px 12px",
-                  borderRadius: 999,
-                  background: isDark ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.76)",
-                  border: `1px solid ${theme.border}`,
-                  color: theme.textMuted,
-                  fontSize: 12,
-                  fontWeight: 700,
-                }}
-              >
-                Guest access is enabled
-              </div>
-            </div>
 
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1.1fr) minmax(320px, 0.9fr)",
-                gap: 18,
-                alignItems: "start",
-              }}
-            >
-              <div
-                style={{
-                  display: "grid",
-                  gap: 10,
-                  color: theme.textSecondary,
-                  fontSize: 14,
-                }}
-              >
-                <div>Use the dashboard without signing in.</div>
-                <div>Sign-in is reserved for future saved context and preferences.</div>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <ToggleButton
+                  active={showSummary}
+                  onClick={() => setShowSummary((value) => !value)}
+                  label="Summary"
+                  icon={<BarChart3 size={16} />}
+                />
+                <ToggleButton
+                  active={showInsights}
+                  onClick={() => setShowInsights((value) => !value)}
+                  label="Insights"
+                  icon={<BarChart3 size={16} />}
+                />
               </div>
 
               <div
                 style={{
-                  border: `1px solid ${theme.border}`,
-                  borderRadius: 18,
-                  padding: 16,
-                  background: isDark ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.72)",
                   display: "grid",
+                  gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 2.2fr) minmax(220px, 1fr)",
                   gap: 14,
                 }}
               >
-                {!useManualLogin && googleLoaded ? (
-                  <>
-                    <div
-                      id="google-signin-button"
-                      style={{
-                        display: "flex",
-                        justifyContent: "center",
-                        minHeight: 48,
-                      }}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setUseManualLogin(true)}
-                      style={{
-                        height: 44,
-                        borderRadius: 12,
-                        border: `1px solid ${theme.border}`,
-                        background: "transparent",
-                        color: theme.textSecondary,
-                        fontWeight: 600,
-                        cursor: "pointer",
-                        fontSize: 14,
-                      }}
-                    >
-                      Use manual sign-in
-                    </button>
-                  </>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    height: 56,
+                    borderRadius: 999,
+                    border: `1px solid ${theme.border}`,
+                    background: isDark ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.78)",
+                    padding: "0 18px",
+                    backdropFilter: "blur(10px)",
+                  }}
+                >
+                  <Search size={18} style={{ color: theme.textMuted }} />
+                  <input
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    onKeyDown={handleSearchKeyDown}
+                    placeholder="Search name, organisation, phone, or email"
+                    style={{
+                      width: "100%",
+                      border: "none",
+                      background: "transparent",
+                      color: theme.text,
+                      fontSize: 15,
+                    }}
+                  />
+                </label>
+                {showSummary ? (
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: 12,
+                    }}
+                  >
+                    <StatPill label="CONTACTS" value={summary.shown} />
+                    <StatPill label="PHONE" value={summary.withPhone} />
+                    <StatPill label="EMAIL" value={summary.withEmail} />
+                  </div>
                 ) : (
-                  <form onSubmit={handleLogin} style={{ display: "grid", gap: 12 }}>
-                    {[
-                      { key: "name", label: "Name", required: true, type: "text", placeholder: "Your name" },
-                      { key: "phone", label: "Phone", required: false, type: "tel", placeholder: "Optional phone" },
-                      { key: "email", label: "Email", required: false, type: "email", placeholder: "Optional email" },
-                    ].map((field) => (
-                      <label key={field.key} style={{ display: "grid", gap: 6 }}>
-                        <span
-                          style={{
-                            fontSize: 11,
-                            fontWeight: 700,
-                            textTransform: "uppercase",
-                            letterSpacing: "0.08em",
-                            color: theme.textMuted,
-                          }}
-                        >
-                          {field.label}
-                        </span>
-                        <input
-                          required={field.required}
-                          type={field.type}
-                          value={loginForm[field.key]}
-                          onChange={(event) =>
-                            setLoginForm((current) => ({ ...current, [field.key]: event.target.value }))
-                          }
-                          placeholder={field.placeholder}
-                          style={{
-                            height: 44,
-                            borderRadius: 12,
-                            border: `1px solid ${theme.border}`,
-                            background: theme.surface,
-                            color: theme.text,
-                            padding: "0 14px",
-                            fontSize: 14,
-                          }}
-                        />
-                      </label>
-                    ))}
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      flexWrap: "wrap",
+                      borderRadius: 16,
+                      border: `1px solid ${theme.border}`,
+                      background: theme.bg,
+                      padding: "10px 14px",
+                      color: theme.textSecondary,
+                      fontSize: 13,
+                    }}
+                  >
+                    <span>{summary.shown} contacts</span>
+                    <span>{summary.highPriority} high priority</span>
+                  </div>
+                )}
+              </div>
+            </div>
 
-                    <button
-                      type="submit"
-                      style={{
-                        height: 44,
-                        borderRadius: 12,
-                        border: "none",
-                        background: theme.primary,
-                        color: isDark ? "#101214" : "#ffffff",
-                        fontWeight: 800,
-                        cursor: "pointer",
-                      }}
-                    >
-                      Sign in
-                    </button>
+            <div
+              style={{
+                border: `1px solid ${theme.border}`,
+                borderRadius: 22,
+                padding: 16,
+                background: isDark ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.78)",
+                display: "grid",
+                gap: 14,
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
+                <div style={{ display: "grid", gap: 4 }}>
+                  <div
+                    style={{
+                      color: theme.textSecondary,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 8,
+                      fontWeight: 700,
+                      fontSize: 13,
+                    }}
+                  >
+                    <UserRound size={16} />
+                    {session ? session.name : "Guest mode"}
+                  </div>
+                  <div style={{ color: theme.textMuted, fontSize: 12 }}>
+                    {session ? `${savedViews.length} saved views` : "Sign in to save views and preferences"}
+                  </div>
+                </div>
 
-                    {googleLoaded && (
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                  <UtilityButton onClick={handleRefresh} title={refreshing ? "Refreshing" : "Refresh"} isLoading={refreshing}>
+                    <RefreshCw size={15} style={{ opacity: 0.85 }} />
+                  </UtilityButton>
+                  <UtilityButton onClick={toggleTheme} title="Toggle theme">
+                    {isDark ? <Sun size={15} /> : <Moon size={15} />}
+                  </UtilityButton>
+                  {session && (
+                    <UtilityButton onClick={handleLogout} title="Logout">
+                      <LogOut size={15} />
+                    </UtilityButton>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gap: 10 }}>
+                <button
+                  type="button"
+                  onClick={handleSaveView}
+                  style={{
+                    height: 44,
+                    borderRadius: 14,
+                    border: `1px solid ${theme.border}`,
+                    background: session ? theme.primary : "transparent",
+                    color: session ? (isDark ? "#101214" : "#ffffff") : theme.text,
+                    fontWeight: 800,
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                  }}
+                >
+                  <Bookmark size={15} />
+                  Save dashboard
+                </button>
+
+                {!session && (
+                  !useManualLogin && googleLoaded ? (
+                    <>
+                      <div
+                        id="google-signin-button"
+                        style={{
+                          display: "flex",
+                          justifyContent: "center",
+                          minHeight: 42,
+                        }}
+                      />
                       <button
                         type="button"
-                        onClick={() => setUseManualLogin(false)}
+                        onClick={() => setUseManualLogin(true)}
                         style={{
-                          height: 44,
+                          height: 42,
                           borderRadius: 12,
                           border: `1px solid ${theme.border}`,
                           background: "transparent",
                           color: theme.textSecondary,
-                          fontWeight: 600,
+                          fontWeight: 700,
                           cursor: "pointer",
-                          fontSize: 14,
+                          fontSize: 13,
                         }}
                       >
-                        Back to Google sign-in
+                        <LogIn size={14} style={{ marginRight: 8 }} />
+                        Use manual sign-in
                       </button>
-                    )}
-                  </form>
+                    </>
+                  ) : (
+                    <form onSubmit={handleLogin} style={{ display: "grid", gap: 10 }}>
+                      {[
+                        { key: "name", label: "Name", required: true, type: "text", placeholder: "Your name" },
+                        { key: "email", label: "Email", required: false, type: "email", placeholder: "Optional email" },
+                      ].map((field) => (
+                        <label key={field.key} style={{ display: "grid", gap: 6 }}>
+                          <span
+                            style={{
+                              fontSize: 11,
+                              fontWeight: 700,
+                              textTransform: "uppercase",
+                              letterSpacing: "0.08em",
+                              color: theme.textMuted,
+                            }}
+                          >
+                            {field.label}
+                          </span>
+                          <input
+                            required={field.required}
+                            type={field.type}
+                            value={loginForm[field.key]}
+                            onChange={(event) =>
+                              setLoginForm((current) => ({ ...current, [field.key]: event.target.value }))
+                            }
+                            placeholder={field.placeholder}
+                            style={{
+                              height: 42,
+                              borderRadius: 12,
+                              border: `1px solid ${theme.border}`,
+                              background: theme.surface,
+                              color: theme.text,
+                              padding: "0 14px",
+                              fontSize: 14,
+                            }}
+                          />
+                        </label>
+                      ))}
+
+                      <button
+                        type="submit"
+                        style={{
+                          height: 42,
+                          borderRadius: 12,
+                          border: "none",
+                          background: theme.primary,
+                          color: isDark ? "#101214" : "#ffffff",
+                          fontWeight: 800,
+                          cursor: "pointer",
+                        }}
+                      >
+                        Sign in
+                      </button>
+
+                      {googleLoaded && (
+                        <button
+                          type="button"
+                          onClick={() => setUseManualLogin(false)}
+                          style={{
+                            height: 40,
+                            borderRadius: 12,
+                            border: `1px solid ${theme.border}`,
+                            background: "transparent",
+                            color: theme.textSecondary,
+                            fontWeight: 600,
+                            cursor: "pointer",
+                            fontSize: 13,
+                          }}
+                        >
+                          Back to Google sign-in
+                        </button>
+                      )}
+                    </form>
+                  )
+                )}
+
+                {accountMessage && (
+                  <div
+                    style={{
+                      borderRadius: 12,
+                      padding: "10px 12px",
+                      background: `${theme.primary}12`,
+                      border: `1px solid ${theme.primary}20`,
+                      color: theme.textSecondary,
+                      fontSize: 12,
+                      fontWeight: 700,
+                    }}
+                  >
+                    {accountMessage}
+                  </div>
+                )}
+
+                {session && savedViews.length > 0 && (
+                  <div style={{ display: "grid", gap: 8 }}>
+                    <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", color: theme.textMuted }}>
+                      SAVED VIEWS
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                      {savedViews.map((view) => (
+                        <button
+                          key={view.id}
+                          type="button"
+                          onClick={() => applySavedView(view)}
+                          style={{
+                            borderRadius: 999,
+                            border: `1px solid ${theme.border}`,
+                            background: theme.surface,
+                            color: theme.text,
+                            padding: "8px 12px",
+                            fontSize: 12,
+                            fontWeight: 700,
+                            cursor: "pointer",
+                          }}
+                        >
+                          {view.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
-          </section>
-        )}
+          </div>
+        </section>
 
         {showInsights && (
           <section

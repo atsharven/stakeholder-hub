@@ -1,8 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { THEMES } from './themeConstants';
 import { ThemeContext } from './themeContext';
-
-// ========== THEME CONTEXT ==========
 
 export function ThemeProvider({ children }) {
   const [isDark, setIsDark] = useState(() => {
