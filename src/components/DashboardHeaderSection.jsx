@@ -68,34 +68,36 @@ export function DashboardHeaderSection(props) {
               style={{
                 display: "inline-flex",
                 alignItems: "center",
-                gap: 8,
-                padding: "6px 10px",
-                borderRadius: 999,
-                background: `${theme.primary}14`,
+                gap: 6,
+                padding: "4px 10px",
+                borderRadius: 6,
+                background: `${theme.primary}20`,
                 color: theme.primary,
-                fontWeight: 700,
-                fontSize: 12,
-                marginBottom: 14,
+                fontWeight: 800,
+                fontSize: 11,
+                letterSpacing: "0.5px",
+                marginBottom: 12,
               }}
             >
-              WRI Stakeholder Dashboard
+              WRI
             </div>
             <h1
               style={{
-                fontSize: "clamp(26px, 5vw, 38px)",
-                lineHeight: 1.05,
-                letterSpacing: "-0.04em",
-                marginBottom: 4,
+                fontSize: "clamp(28px, 5.5vw, 40px)",
+                lineHeight: 1.1,
+                letterSpacing: "-0.02em",
+                fontWeight: 800,
+                marginBottom: 8,
               }}
             >
-              WRI Stakeholder Dashboard
+              Stakeholder Hub
             </h1>
-            <p style={{ color: theme.textSecondary, maxWidth: 460, fontSize: 13 }}>
-              Search, filter, and open stakeholder details fast.
+            <p style={{ color: theme.textSecondary, maxWidth: 480, fontSize: "clamp(13px, 2vw, 14px)", lineHeight: 1.5 }}>
+              Search across WRI Stakeholders
             </p>
           </div>
 
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <ToggleButton
               active={showSummary}
               onClick={() => setShowSummary((value) => !value)}
@@ -127,25 +129,27 @@ export function DashboardHeaderSection(props) {
                 alignItems: "center",
                 gap: 12,
                 height: 56,
-                borderRadius: 999,
+                borderRadius: 16,
                 border: `1px solid ${theme.border}`,
-                background: isDark ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.78)",
+                background: isDark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.85)",
                 padding: "0 18px",
                 backdropFilter: "blur(10px)",
+                transition: "all 0.2s ease",
               }}
             >
-              <Search size={18} style={{ color: theme.textMuted }} />
+              <Search size={18} style={{ color: theme.textMuted, flexShrink: 0 }} />
               <input
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 onKeyDown={handleSearchKeyDown}
-                placeholder="Search name, organisation, phone, or email"
+                placeholder="Search name, organization, email..."
                 style={{
                   width: "100%",
                   border: "none",
                   background: "transparent",
                   color: theme.text,
-                  fontSize: 15,
+                  fontSize: "clamp(14px, 2vw, 15px)",
+                  outline: "none",
                 }}
               />
             </label>
@@ -180,34 +184,35 @@ export function DashboardHeaderSection(props) {
         <div
           style={{
             border: `1px solid ${theme.border}`,
-            borderRadius: 22,
+            borderRadius: 16,
             padding: 16,
-            background: isDark ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.78)",
+            background: isDark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.85)",
+            backdropFilter: "blur(10px)",
             display: "grid",
             gap: 14,
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
-            <div style={{ display: "grid", gap: 4 }}>
+            <div style={{ display: "grid", gap: 6 }}>
               <div
                 style={{
-                  color: theme.textSecondary,
+                  color: theme.text,
                   display: "inline-flex",
                   alignItems: "center",
                   gap: 8,
                   fontWeight: 700,
-                  fontSize: 13,
+                  fontSize: "clamp(13px, 2vw, 14px)",
                 }}
               >
-                <UserRound size={16} />
-                {session ? session.name : "Guest mode"}
+                <UserRound size={16} style={{ opacity: 0.7 }} />
+                {session ? session.name : "Guest Mode"}
               </div>
-              <div style={{ color: theme.textMuted, fontSize: 12 }}>
-                {session ? `${savedViews.length} saved views` : "Sign in to save views and preferences"}
+              <div style={{ color: theme.textMuted, fontSize: 12, fontWeight: 500 }}>
+                {session ? `${savedViews.length} saved views` : "Sign in to save views"}
               </div>
             </div>
 
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
               <UtilityButton onClick={handleRefresh} title={refreshing ? "Refreshing" : "Refresh"} isLoading={refreshing} theme={theme} isDark={isDark}>
                 <RefreshCw size={15} style={{ opacity: 0.85 }} />
               </UtilityButton>
@@ -228,16 +233,19 @@ export function DashboardHeaderSection(props) {
               onClick={handleSaveView}
               style={{
                 height: 44,
-                borderRadius: 14,
+                borderRadius: 12,
                 border: `1px solid ${theme.border}`,
                 background: session ? theme.primary : "transparent",
                 color: session ? (isDark ? "#101214" : "#ffffff") : theme.text,
-                fontWeight: 800,
-                cursor: "pointer",
+                fontWeight: 700,
+                fontSize: 14,
+                cursor: session ? "pointer" : "not-allowed",
+                opacity: session ? 1 : 0.6,
                 display: "inline-flex",
                 alignItems: "center",
                 justifyContent: "center",
                 gap: 8,
+                transition: "all 0.2s ease",
               }}
             >
               <Bookmark size={15} />
