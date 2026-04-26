@@ -1,11 +1,10 @@
 export const GOOGLE_SHEET_CONFIG = {
-  sheetId: "1JceTKVypT7p5KzUfL4NpoeuJoGp_s4k48Rj1qEL9ARI",
+  sheetId: "1PLqdAe1hbB-1Zk-3ae-NkcXAh1C7afxk",
   
   // Sheet GIDs and their corresponding state names (as they appear in sheets)
   stateSheets: {
-    "National": 1749540502,
-    "Rajasthan": 909767070,
-    "Madhya Pradesh": 1699599823,
+    "RJ": 1990276755,
+    "_Lists": 28466871,
     // "Full State Name": gidNumber, // Add new states here as they're created
   },
   
