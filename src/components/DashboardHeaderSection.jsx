@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   BarChart3,
   Bookmark,
@@ -11,8 +11,11 @@ import {
   UserRound,
 } from "lucide-react";
 import { StatPill, ToggleButton, UtilityButton } from "./DashboardControls";
+import { LoginModal } from "./LoginModal";
 
 export function DashboardHeaderSection(props) {
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+
   const {
     surfaceStyle,
     isDark,
@@ -189,30 +192,33 @@ export function DashboardHeaderSection(props) {
             background: isDark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.85)",
             backdropFilter: "blur(10px)",
             display: "grid",
-            gap: 14,
+            gap: 12,
           }}
         >
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
-            <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+            <div style={{ display: "grid", gap: 4, flex: 1, minWidth: 0 }}>
               <div
                 style={{
                   color: theme.text,
-                  display: "inline-flex",
+                  display: "flex",
                   alignItems: "center",
                   gap: 8,
                   fontWeight: 700,
                   fontSize: "clamp(13px, 2vw, 14px)",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
                 }}
               >
-                <UserRound size={16} style={{ opacity: 0.7 }} />
-                {session ? session.name : "Guest Mode"}
+                <UserRound size={16} style={{ opacity: 0.7, flexShrink: 0 }} />
+                <span>{session ? session.name : "Guest"}</span>
               </div>
               <div style={{ color: theme.textMuted, fontSize: 12, fontWeight: 500 }}>
-                {session ? `${savedViews.length} saved views` : "Sign in to save views"}
+                {session ? `${savedViews.length} views` : "Not signed in"}
               </div>
             </div>
 
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
               <UtilityButton onClick={handleRefresh} title={refreshing ? "Refreshing" : "Refresh"} isLoading={refreshing} theme={theme} isDark={isDark}>
                 <RefreshCw size={15} style={{ opacity: 0.85 }} />
               </UtilityButton>
@@ -227,182 +233,102 @@ export function DashboardHeaderSection(props) {
             </div>
           </div>
 
-          <div style={{ display: "grid", gap: 10 }}>
+          {!session && (
             <button
               type="button"
-              onClick={handleSaveView}
+              onClick={() => setIsLoginModalOpen(true)}
               style={{
                 height: 44,
                 borderRadius: 12,
-                border: `1px solid ${theme.border}`,
-                background: session ? theme.primary : "transparent",
-                color: session ? (isDark ? "#101214" : "#ffffff") : theme.text,
+                border: "none",
+                background: theme.primary,
+                color: isDark ? "#101214" : "#ffffff",
                 fontWeight: 700,
                 fontSize: 14,
-                cursor: session ? "pointer" : "not-allowed",
-                opacity: session ? 1 : 0.6,
-                display: "inline-flex",
+                cursor: "pointer",
+                display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 gap: 8,
                 transition: "all 0.2s ease",
               }}
             >
-              <Bookmark size={15} />
-              Save dashboard
+              <LogIn size={16} />
+              Sign In
             </button>
+          )}
 
-            {!session && (
-              !useManualLogin && googleLoaded ? (
-                <>
-                  <div
-                    id="google-signin-button"
-                    style={{
-                      display: "flex",
-                      justifyContent: "center",
-                      minHeight: 42,
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setUseManualLogin(true)}
-                    style={{
-                      height: 42,
-                      borderRadius: 12,
-                      border: `1px solid ${theme.border}`,
-                      background: "transparent",
-                      color: theme.textSecondary,
-                      fontWeight: 700,
-                      cursor: "pointer",
-                      fontSize: 13,
-                    }}
-                  >
-                    <LogIn size={14} style={{ marginRight: 8 }} />
-                    Use manual sign-in
-                  </button>
-                </>
-              ) : (
-                <form onSubmit={handleLogin} style={{ display: "grid", gap: 10 }}>
-                  {[
-                    { key: "name", label: "Name", required: true, type: "text", placeholder: "Your name" },
-                    { key: "email", label: "Email", required: false, type: "email", placeholder: "Optional email" },
-                  ].map((field) => (
-                    <label key={field.key} style={{ display: "grid", gap: 6 }}>
-                      <span
+          {session && (
+            <>
+              <button
+                type="button"
+                onClick={handleSaveView}
+                style={{
+                  height: 44,
+                  borderRadius: 12,
+                  border: `1px solid ${theme.border}`,
+                  background: theme.primary,
+                  color: isDark ? "#101214" : "#ffffff",
+                  fontWeight: 700,
+                  fontSize: 14,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  transition: "all 0.2s ease",
+                }}
+              >
+                <Bookmark size={15} />
+                Save dashboard
+              </button>
+
+              {savedViews.length > 0 && (
+                <div style={{ display: "grid", gap: 8 }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", color: theme.textMuted }}>
+                    SAVED VIEWS
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    {savedViews.map((view) => (
+                      <button
+                        key={view.id}
+                        type="button"
+                        onClick={() => applySavedView(view)}
                         style={{
-                          fontSize: 11,
-                          fontWeight: 700,
-                          textTransform: "uppercase",
-                          letterSpacing: "0.08em",
-                          color: theme.textMuted,
-                        }}
-                      >
-                        {field.label}
-                      </span>
-                      <input
-                        required={field.required}
-                        type={field.type}
-                        value={loginForm[field.key]}
-                        onChange={(event) =>
-                          setLoginForm((current) => ({ ...current, [field.key]: event.target.value }))
-                        }
-                        placeholder={field.placeholder}
-                        style={{
-                          height: 42,
-                          borderRadius: 12,
+                          borderRadius: 999,
                           border: `1px solid ${theme.border}`,
                           background: theme.surface,
                           color: theme.text,
-                          padding: "0 14px",
-                          fontSize: 14,
+                          padding: "8px 12px",
+                          fontSize: 12,
+                          fontWeight: 700,
+                          cursor: "pointer",
+                          transition: "all 0.2s ease",
                         }}
-                      />
-                    </label>
-                  ))}
-
-                  <button
-                    type="submit"
-                    style={{
-                      height: 42,
-                      borderRadius: 12,
-                      border: "none",
-                      background: theme.primary,
-                      color: isDark ? "#101214" : "#ffffff",
-                      fontWeight: 800,
-                      cursor: "pointer",
-                    }}
-                  >
-                    Sign in
-                  </button>
-
-                  {googleLoaded && (
-                    <button
-                      type="button"
-                      onClick={() => setUseManualLogin(false)}
-                      style={{
-                        height: 40,
-                        borderRadius: 12,
-                        border: `1px solid ${theme.border}`,
-                        background: "transparent",
-                        color: theme.textSecondary,
-                        fontWeight: 600,
-                        cursor: "pointer",
-                        fontSize: 13,
-                      }}
-                    >
-                      Back to Google sign-in
-                    </button>
-                  )}
-                </form>
-              )
-            )}
-
-            {accountMessage && (
-              <div
-                style={{
-                  borderRadius: 12,
-                  padding: "10px 12px",
-                  background: `${theme.primary}12`,
-                  border: `1px solid ${theme.primary}20`,
-                  color: theme.textSecondary,
-                  fontSize: 12,
-                  fontWeight: 700,
-                }}
-              >
-                {accountMessage}
-              </div>
-            )}
-
-            {session && savedViews.length > 0 && (
-              <div style={{ display: "grid", gap: 8 }}>
-                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", color: theme.textMuted }}>
-                  SAVED VIEWS
+                      >
+                        {view.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                  {savedViews.map((view) => (
-                    <button
-                      key={view.id}
-                      type="button"
-                      onClick={() => applySavedView(view)}
-                      style={{
-                        borderRadius: 999,
-                        border: `1px solid ${theme.border}`,
-                        background: theme.surface,
-                        color: theme.text,
-                        padding: "8px 12px",
-                        fontSize: 12,
-                        fontWeight: 700,
-                        cursor: "pointer",
-                      }}
-                    >
-                      {view.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+              )}
+            </>
+          )}
         </div>
+
+        <LoginModal
+          isOpen={isLoginModalOpen}
+          onClose={() => setIsLoginModalOpen(false)}
+          theme={theme}
+          isDark={isDark}
+          useManualLogin={useManualLogin}
+          setUseManualLogin={setUseManualLogin}
+          googleLoaded={googleLoaded}
+          handleLogin={handleLogin}
+          loginForm={loginForm}
+          setLoginForm={setLoginForm}
+          accountMessage={accountMessage}
+        />
       </div>
     </section>
   );
