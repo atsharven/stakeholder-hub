@@ -1,5 +1,11 @@
 import React from "react";
 import { Mail, Phone } from "lucide-react";
+import {
+  splitEmailValues,
+  splitPhoneValues,
+  toMailtoHref,
+  toTelHref,
+} from "../contactUtils";
 
 export const ContactModal = React.memo(function ContactModal({
   stakeholder,
@@ -13,6 +19,13 @@ export const ContactModal = React.memo(function ContactModal({
   contactInfoStyle,
 }) {
   if (!stakeholder) return null;
+
+  const mobileNumbers = splitPhoneValues(stakeholder.mobile);
+  const officeNumbers = splitPhoneValues(stakeholder.officeNo);
+  const emailAddresses = splitEmailValues(stakeholder.email);
+  const callHref = toTelHref(stakeholder.mobile || stakeholder.officeNo);
+  const emailHref = toMailtoHref(stakeholder.email);
+  const quickActionCount = Number(Boolean(callHref)) + Number(Boolean(emailHref));
 
   return (
     <>
@@ -101,10 +114,16 @@ export const ContactModal = React.memo(function ContactModal({
 
         <div style={cardStyle}>
           <div style={{ ...labelStyle, marginBottom: 12 }}>Quick Actions</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            {stakeholder.mobile && (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: quickActionCount > 1 ? "1fr 1fr" : "1fr",
+              gap: 10,
+            }}
+          >
+            {callHref && (
               <a
-                href={`tel:${stakeholder.mobile}`}
+                href={callHref}
                 style={{
                   height: 44,
                   borderRadius: 12,
@@ -126,9 +145,9 @@ export const ContactModal = React.memo(function ContactModal({
                 Call
               </a>
             )}
-            {stakeholder.email && (
+            {emailHref && (
               <a
-                href={`mailto:${stakeholder.email}`}
+                href={emailHref}
                 style={{
                   height: 44,
                   borderRadius: 12,
@@ -163,22 +182,34 @@ export const ContactModal = React.memo(function ContactModal({
         <div style={cardStyle}>
           <div style={{ ...labelStyle, marginBottom: 12 }}>Contact Information</div>
           <div style={{ display: "grid", gap: 14 }}>
-            {stakeholder.mobile && (
+            {mobileNumbers.length > 0 && (
               <div>
                 <div style={{ fontSize: 11, color: theme.textMuted, marginBottom: 4 }}>Mobile</div>
-                <div style={contactInfoStyle}>{stakeholder.mobile}</div>
+                <div style={{ display: "grid", gap: 8 }}>
+                  {mobileNumbers.map((value) => (
+                    <div key={`mobile-${value}`} style={contactInfoStyle}>{value}</div>
+                  ))}
+                </div>
               </div>
             )}
-            {stakeholder.officeNo && (
+            {officeNumbers.length > 0 && (
               <div>
                 <div style={{ fontSize: 11, color: theme.textMuted, marginBottom: 4 }}>Office</div>
-                <div style={contactInfoStyle}>{stakeholder.officeNo}</div>
+                <div style={{ display: "grid", gap: 8 }}>
+                  {officeNumbers.map((value) => (
+                    <div key={`office-${value}`} style={contactInfoStyle}>{value}</div>
+                  ))}
+                </div>
               </div>
             )}
-            {stakeholder.email && (
+            {emailAddresses.length > 0 && (
               <div>
                 <div style={{ fontSize: 11, color: theme.textMuted, marginBottom: 4 }}>Email</div>
-                <div style={contactInfoStyle}>{stakeholder.email}</div>
+                <div style={{ display: "grid", gap: 8 }}>
+                  {emailAddresses.map((value) => (
+                    <div key={`email-${value}`} style={contactInfoStyle}>{value}</div>
+                  ))}
+                </div>
               </div>
             )}
           </div>

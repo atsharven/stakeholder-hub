@@ -1,4 +1,5 @@
 import React from "react";
+import { splitEmailValues, splitPhoneValues } from "../contactUtils";
 
 export function ResultsSection({
   surfaceStyle,
@@ -107,7 +108,11 @@ export function ResultsSection({
         ) : (
           filteredStakeholders.map((item) => {
             const active = item.id === selectedId;
-            const contactInfo = [item.mobile || item.officeNo, item.email].filter(Boolean);
+            const contactInfo = [
+              ...splitPhoneValues(item.mobile),
+              ...splitPhoneValues(item.officeNo),
+              ...splitEmailValues(item.email),
+            ];
 
             return (
               <button

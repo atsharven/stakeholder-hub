@@ -1,4 +1,5 @@
 import { GOOGLE_SHEET_CONFIG, COLUMN_NAMES } from './config'
+import { normalizeMultiValueContact } from './contactUtils'
 
 const isDev = import.meta.env.DEV;
 
@@ -111,9 +112,9 @@ const mapRow = (row, rowIndex, sheetState) => {
     organization: normalizeTextValue(row[COLUMN_NAMES.organization] || ''),
     designation: normalizeTextValue(row[COLUMN_NAMES.designation] || ''),
     category: normalizeTextValue(row[COLUMN_NAMES.category] || ''), // Sector (org type like Regulatory Body, Public Utility)
-    mobile: normalizeTextValue(row[COLUMN_NAMES.mobile] || ''),
-    officeNo: normalizeTextValue(row[COLUMN_NAMES.officeNo] || ''),
-    email: normalizeTextValue(row[COLUMN_NAMES.email] || '').toLowerCase(),
+    mobile: normalizeMultiValueContact(row[COLUMN_NAMES.mobile] || ''),
+    officeNo: normalizeMultiValueContact(row[COLUMN_NAMES.officeNo] || ''),
+    email: normalizeMultiValueContact(row[COLUMN_NAMES.email] || '', { lowercase: true }),
     influence: normalizeTextValue(row[COLUMN_NAMES.influence] || ''),
     interest: normalizeTextValue(row[COLUMN_NAMES.interest] || ''),
     position: normalizeTextValue(row[COLUMN_NAMES.position] || ''),
@@ -126,7 +127,7 @@ const mapRow = (row, rowIndex, sheetState) => {
     notes: normalizeTextValue(row[COLUMN_NAMES.notes] || ''),
     
     // Derived/formatted fields for dashboard compatibility
-    phone: normalizeTextValue(row[COLUMN_NAMES.mobile] || ''), // Primary contact number
+    phone: normalizeMultiValueContact(row[COLUMN_NAMES.mobile] || ''), // Primary contact number
     entityType: 'Person', // Default to Person (can be enhanced in future)
     strategy: '', // Not in new schema but may be needed
     owner: normalizeTextValue(row[COLUMN_NAMES.relManager] || ''), // Map relManager to owner for compatibility

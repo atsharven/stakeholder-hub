@@ -4,6 +4,7 @@ import { DashboardHeaderSection } from "./components/DashboardHeaderSection";
 import { FiltersSection } from "./components/FiltersSection";
 import { InsightsSection } from "./components/InsightsSection";
 import { ResultsSection } from "./components/ResultsSection";
+import { splitEmailValues, splitPhoneValues } from "./contactUtils";
 import { fetchStakeholders } from "./googleSheetsClient";
 import { useTheme } from "./themeContext";
 import { categoryColors, levelColors } from "./themeConstants";
@@ -25,6 +26,16 @@ const searchableFields = [
 const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const normalizeSearchText = (value) => String(value || "").toLowerCase().replace(/\s+/g, " ").trim();
 const normalizePhone = (value) => String(value || "").replace(/\D/g, "");
+const getNormalizedFieldValue = (field, value) => {
+  if (field === "email") return splitEmailValues(value).join(" ");
+  return normalizeSearchText(value);
+};
+const getNormalizedPhoneValue = (field, value) => {
+  if (field === "mobile" || field === "officeNo") {
+    return splitPhoneValues(value).map(normalizePhone).join(" ");
+  }
+  return normalizePhone(value);
+};
 const createIdentityKey = (item) =>
   [normalizeSearchText(item.name), normalizeSearchText(item.organization), normalizeSearchText(item.designation)]
     .filter(Boolean)
@@ -53,8 +64,8 @@ const getSearchScore = (item, query) => {
 
   weightedFields.forEach(([field, weight]) => {
     const value = item[field] || "";
-    const normalizedValue = normalizeSearchText(value);
-    const phoneValue = normalizePhone(value);
+    const normalizedValue = getNormalizedFieldValue(field, value);
+    const phoneValue = getNormalizedPhoneValue(field, value);
 
     if (normalizedValue === normalizedQuery || (phoneQuery && phoneValue === phoneQuery)) {
       score = Math.max(score, weight + 50);
@@ -375,8 +386,8 @@ export default function StakeholderDashboard() {
         if (!query) return true;
 
         return searchableFields.some((field) =>
-          normalizeSearchText(item[field]).includes(normalizedQuery)
-          || (phoneQuery && normalizePhone(item[field]).includes(phoneQuery)),
+          getNormalizedFieldValue(field, item[field]).includes(normalizedQuery)
+          || (phoneQuery && getNormalizedPhoneValue(field, item[field]).includes(phoneQuery)),
         );
       })
       .sort((a, b) => {
@@ -467,12 +478,18 @@ export default function StakeholderDashboard() {
 
     filteredStakeholders.forEach((item) => {
       const identityKey = createIdentityKey(item);
-      const emailKey = normalizeSearchText(item.email);
-      const phoneKey = normalizePhone(item.mobile || item.officeNo);
+      const emailKeys = splitEmailValues(item.email);
+      const phoneKeys = [...splitPhoneValues(item.mobile), ...splitPhoneValues(item.officeNo)]
+        .map(normalizePhone)
+        .filter(Boolean);
 
       if (identityKey) identityCounts.set(identityKey, (identityCounts.get(identityKey) || 0) + 1);
-      if (emailKey) emailCounts.set(emailKey, (emailCounts.get(emailKey) || 0) + 1);
-      if (phoneKey) phoneCounts.set(phoneKey, (phoneCounts.get(phoneKey) || 0) + 1);
+      emailKeys.forEach((emailKey) => {
+        emailCounts.set(emailKey, (emailCounts.get(emailKey) || 0) + 1);
+      });
+      phoneKeys.forEach((phoneKey) => {
+        phoneCounts.set(phoneKey, (phoneCounts.get(phoneKey) || 0) + 1);
+      });
     });
 
     return {
@@ -480,11 +497,13 @@ export default function StakeholderDashboard() {
         (item) => identityCounts.get(createIdentityKey(item)) > 1,
       ).length,
       duplicateEmail: filteredStakeholders.filter(
-        (item) => item.email && emailCounts.get(normalizeSearchText(item.email)) > 1,
+        (item) => splitEmailValues(item.email).some((email) => emailCounts.get(email) > 1),
       ).length,
       duplicatePhone: filteredStakeholders.filter((item) => {
-        const phoneKey = normalizePhone(item.mobile || item.officeNo);
-        return phoneKey && phoneCounts.get(phoneKey) > 1;
+        const phoneKeys = [...splitPhoneValues(item.mobile), ...splitPhoneValues(item.officeNo)]
+          .map(normalizePhone)
+          .filter(Boolean);
+        return phoneKeys.some((phoneKey) => phoneCounts.get(phoneKey) > 1);
       }).length,
       incompleteContacts: filteredStakeholders.filter(
         (item) => !item.mobile && !item.officeNo && !item.email,
