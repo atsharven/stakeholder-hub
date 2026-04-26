@@ -68,18 +68,18 @@ export function DashboardHeaderSection(props) {
               style={{
                 display: "inline-flex",
                 alignItems: "center",
-                gap: 6,
-                padding: "4px 10px",
-                borderRadius: 6,
-                background: `${theme.primary}20`,
+                gap: 8,
+                padding: "8px 14px",
+                borderRadius: 8,
+                background: `${theme.primary}25`,
                 color: theme.primary,
                 fontWeight: 800,
-                fontSize: 11,
-                letterSpacing: "0.5px",
+                fontSize: 13,
+                letterSpacing: "0.3px",
                 marginBottom: 12,
               }}
             >
-              WRI
+              Rajasthan
             </div>
             <h1
               style={{
@@ -90,10 +90,10 @@ export function DashboardHeaderSection(props) {
                 marginBottom: 8,
               }}
             >
-              Stakeholder Hub
+              StakeHolder Hub
             </h1>
             <p style={{ color: theme.textSecondary, maxWidth: 480, fontSize: "clamp(13px, 2vw, 14px)", lineHeight: 1.5 }}>
-              Search across WRI Stakeholders
+              Search across Rajasthan Stakeholders
             </p>
           </div>
 
