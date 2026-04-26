@@ -98,6 +98,31 @@ export function DashboardHeaderSection(props) {
             <p style={{ color: theme.textSecondary, maxWidth: 480, fontSize: "clamp(13px, 2vw, 14px)", lineHeight: 1.5 }}>
               Search across Rajasthan Stakeholders
             </p>
+
+            {/* Compact Insights Bar */}
+            {props.insightMetrics && props.showInsights && (
+              <div
+                style={{
+                  display: "flex",
+                  gap: 12,
+                  flexWrap: "wrap",
+                  marginTop: 12,
+                  padding: "12px 14px",
+                  borderRadius: 12,
+                  background: isDark ? `${theme.primary}12` : `${theme.primary}08`,
+                  border: `1px solid ${theme.primary}20`,
+                }}
+              >
+                {Object.entries(props.insightMetrics).map(([key, value]) => (
+                  <div key={key} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600 }}>
+                    <span style={{ color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.3px" }}>
+                      {key}:
+                    </span>
+                    <span style={{ color: theme.text, fontWeight: 800 }}>{value}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>

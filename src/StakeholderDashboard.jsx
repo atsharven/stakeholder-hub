@@ -811,54 +811,67 @@ export default function StakeholderDashboard() {
           setLoginForm={setLoginForm}
           accountMessage={accountMessage}
           applySavedView={applySavedView}
-        />
-
-        <InsightsSection
-          showInsights={showInsights}
-          surfaceStyle={surfaceStyle}
-          isDark={isDark}
-          theme={theme}
           insightMetrics={insightMetrics}
           dataQuality={dataQuality}
-          total={summary.shown}
         />
 
-        <FiltersSection
-          surfaceStyle={surfaceStyle}
-          theme={theme}
-          stateFilter={stateFilter}
-          setStateFilter={setStateFilter}
-          setIsStateSelectFocused={setIsStateSelectFocused}
-          stateOptions={stateOptions}
-          sectorFilter={sectorFilter}
-          setSectorFilter={setSectorFilter}
-          uniqueSectors={uniqueSectors}
-          priorityFilter={priorityFilter}
-          setPriorityFilter={setPriorityFilter}
-        />
+        {/* Responsive Two-Column Layout: Filters + Results */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: isMobile ? "1fr" : "280px 1fr",
+            gap: 20,
+            alignItems: "start",
+          }}
+        >
+          {/* Left Sidebar: Filters */}
+          <div
+            style={{
+              position: "sticky",
+              top: 24,
+              zIndex: 15,
+              height: "fit-content",
+            }}
+          >
+            <FiltersSection
+              surfaceStyle={surfaceStyle}
+              theme={theme}
+              stateFilter={stateFilter}
+              setStateFilter={setStateFilter}
+              setIsStateSelectFocused={setIsStateSelectFocused}
+              stateOptions={stateOptions}
+              sectorFilter={sectorFilter}
+              setSectorFilter={setSectorFilter}
+              uniqueSectors={uniqueSectors}
+              priorityFilter={priorityFilter}
+              setPriorityFilter={setPriorityFilter}
+            />
+          </div>
 
-        <ResultsSection
-          surfaceStyle={surfaceStyle}
-          theme={theme}
-          searchQuery={searchQuery}
-          stateFilter={stateFilter}
-          sectorFilter={sectorFilter}
-          priorityFilter={priorityFilter}
-          setSearchQuery={setSearchQuery}
-          setStateFilter={setStateFilter}
-          setSectorFilter={setSectorFilter}
-          setPriorityFilter={setPriorityFilter}
-          setSelectedId={setSelectedId}
-          summary={summary}
-          filteredStakeholders={filteredStakeholders}
-          selectedId={selectedId}
-          handleSelectStakeholder={handleSelectStakeholder}
-          isDark={isDark}
-          renderHighlightedText={renderHighlightedText}
-          renderBadge={renderBadge}
-          getCategoryColor={getCategoryColor}
-          getLevelColor={getLevelColor}
-        />
+          {/* Right Column: Results */}
+          <ResultsSection
+            surfaceStyle={surfaceStyle}
+            theme={theme}
+            searchQuery={searchQuery}
+            stateFilter={stateFilter}
+            sectorFilter={sectorFilter}
+            priorityFilter={priorityFilter}
+            setSearchQuery={setSearchQuery}
+            setStateFilter={setStateFilter}
+            setSectorFilter={setSectorFilter}
+            setPriorityFilter={setPriorityFilter}
+            setSelectedId={setSelectedId}
+            summary={summary}
+            filteredStakeholders={filteredStakeholders}
+            selectedId={selectedId}
+            handleSelectStakeholder={handleSelectStakeholder}
+            isDark={isDark}
+            renderHighlightedText={renderHighlightedText}
+            renderBadge={renderBadge}
+            getCategoryColor={getCategoryColor}
+            getLevelColor={getLevelColor}
+          />
+        </div>
 
         {selectedStakeholderForModal && (
           <ContactModal

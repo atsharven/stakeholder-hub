@@ -18,12 +18,14 @@ export function FiltersSection({
     <section
       style={{
         ...surfaceStyle,
-        padding: 18,
-        display: "flex",
-        flexWrap: "wrap",
+        padding: 16,
+        display: "grid",
         gap: 14,
       }}
     >
+      <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.08em", color: theme.textMuted }}>
+        FILTERS
+      </div>
       <FilterSelect
         label="State"
         value={stateFilter}
